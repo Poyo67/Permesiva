@@ -340,7 +340,7 @@
 
 <script>
 /* ══ META ══ */
-let meta={emeraudes:0, classUpgrades:{}, partieEnCours:false};
+let meta={emeraudes:0, classUpgrades:{}, partieEnCours:false, temporal:{pv:0,or:0}, bonusDepart:{xp:0}};
 function loadMeta(){try{const s=localStorage.getItem('mr_meta');if(s){const m=JSON.parse(s);meta={...meta,...m};}}catch(e){}}
 function saveMeta(){try{localStorage.setItem('mr_meta',JSON.stringify(meta));}catch(e){}}
 loadMeta();
@@ -776,7 +776,199 @@ const CARTES_DONJON=[
    ]}
 ];
 
+/* ══ CARTES CITADELLE ══ */
+const CARTES_CITADELLE=[
+
+  /* MONSTRES DISPO */
+  {id:'araignee_geante',type:'monstre',nom:'Araignée Géante',icon:'🕷',zone:'citadelle',
+   sc:[{pv:30,pvCoop:60,atk:4,poison:true,xp:3,or:2,item:'antipoison'},
+       {pv:40,pvCoop:80,atk:5,poison:true,xp:3,or:2,item:'antipoison'},
+       {pv:45,pvCoop:90,atk:6,poison:true,xp:3,or:2}]},
+  {id:'protecteur_roi',type:'monstre',nom:'Protecteur du Roi',icon:'⚔',zone:'citadelle',
+   sc:[{pv:35,pvCoop:70,atk:2,outre:true,etourdi:true,xp:5,armure:1},
+       {pv:45,pvCoop:90,atk:2,outre:true,etourdi:true,xp:4,armure:1},
+       {pv:50,pvCoop:100,atk:3,outre:true,etourdi:true,xp:3,armure:1}]},
+  {id:'loup_enrage',type:'monstre',nom:'Loup Enragé',icon:'🐺',zone:'citadelle',
+   sc:[{pv:20,pvCoop:40,atk:3,saignement:true,xp:1,or:1,nourriture:1},
+       {pv:30,pvCoop:60,atk:4,saignement:true,xp:2,or:1,nourriture:1},
+       {pv:35,pvCoop:70,atk:5,saignement:true,xp:1,or:1,nourriture:2}]},
+
+  /* MONSTRES PACK */
+  {id:'arbaletrier',type:'monstre',nom:'Arbalétrier',icon:'🏹',zone:'citadelle',isPack:true,
+   sc:[{pv:21,pvCoop:42,atk:6,etourdi:true,xp:3,item:'potion_chance'},
+       {pv:27,pvCoop:54,atk:6,etourdi:true,xp:3,item:'potion_chance'},
+       {pv:33,pvCoop:66,atk:6,etourdi:true,xp:3,item:'potion_chance',emmeraude:1}]},
+  {id:'bras_droit',type:'monstre',nom:'Bras Droit',icon:'🦾',zone:'citadelle',isPack:true,
+   sc:[{pv:22,pvCoop:45,atk:2,outre:true,maudit:true,etourdi:true,xp:0,item:'eau_benite',tresor:true},
+       {pv:28,pvCoop:55,atk:2,outre:true,maudit:true,etourdi:true,poison:true,xp:0,item:'eau_benite',tresor:true},
+       {pv:30,pvCoop:62,atk:3,outre:true,maudit:true,etourdi:true,poison:true,xp:0,item:'eau_benite',tresor:true}]},
+
+  /* PIÈGES DISPO */
+  {id:'dalles',type:'piege',nom:'Dalles',icon:'🟫',zone:'citadelle',
+   conds:[
+     {des:[1,2],label:'Dé 1-2',ok:{xp:1},ko:{armure:-1}},
+     {des:[3,4],label:'Dé 3-4',ok:{xp:1},ko:{pv:-2,aveuglement:true}},
+     {des:[5,6],label:'Dé 5-6',ok:{xp:2},ko:{aveuglement:true}}
+   ]},
+  {id:'haches',type:'piege',nom:'Haches',icon:'🪓',zone:'citadelle',
+   conds:[
+     {des:[1,6],label:'Dé 1/6',ok:{or:2},ko:{pv:-2,outre:true}},
+     {des:[2,5],label:'Dé 2/5',ok:{or:2,xp:1},ko:{pv:-2,outre:true,saignement:true}},
+     {des:[3,4],label:'Dé 3-4',ok:{xp:3},ko:{pv:-1,saignement:true}}
+   ]},
+  {id:'herse',type:'piege',nom:'Herse',icon:'🚧',zone:'citadelle',
+   conds:[
+     {des:[1,2,3],label:'Dé < 4',ok:{},ko:{pv:-1,outre:true,saignement:true}},
+     {des:[4,5,6],label:'Dé ≥ 4',ok:{xp:1},ko:{pv:-1}}
+   ]},
+  {id:'belier',type:'piege',nom:'Bélier',icon:'🐏',zone:'citadelle',
+   conds:[
+     {des:[1,2,3],label:'Dé 1-3',ok:{xp:2},ko:{pv:-3}},
+     {des:[4,5,6],label:'Dé 4-6',ok:{xp:1},ko:{armure:-1}}
+   ]},
+  {id:'piege_temporel',type:'piege',nom:'Piège Temporel',icon:'⏳',zone:'citadelle',isPiegeTemporel:true},
+
+  /* PIÈGES PACK */
+  {id:'fosse_loups',type:'piege',nom:'Fosse aux Loups',icon:'🐺',zone:'citadelle',isPack:true,isFosseLoups:true},
+  {id:'prison',type:'piege',nom:'Prison',icon:'⛓',zone:'citadelle',isPack:true,isPrisonCita:true},
+
+  /* REPOS DISPO */
+  {id:'cachette',type:'repos',nom:'Cachette',icon:'🕳',zone:'citadelle',
+   choix:[{label:'+1 PV',eff:{pv:1}},{label:'+1 Nourriture',eff:{nourriture:1}}]},
+  {id:'forge_abandonnee',type:'repos',nom:'Forge Abandonnée',icon:'⚒',zone:'citadelle',
+   echanges:[
+     {label:'-5 Or → +1 Armure',cout:{or:5},gain:{armure:1}},
+     {label:'Rafraîchir compétence',cout:{},gain:{refresh_skill:true}}
+   ]},
+
+  /* REPOS PACK */
+  {id:'feu_camp_cita',type:'repos',nom:'Feu de Camp',icon:'🔥',zone:'citadelle',isPack:true,
+   choix:[{label:'+2 PV',eff:{pv:2}},{label:'+1 Nourriture',eff:{nourriture:1}},{label:'+Anti-Poison',eff:{item:'antipoison'}}]},
+
+  /* TRÉSORS DISPO */
+  {id:'tresor_cita',type:'tresor',nom:'Trésor',icon:'💰',zone:'citadelle',
+   res:[
+     {de:1,label:'+2 Or',eff:{or:2}},
+     {de:2,choix:[{label:'+Potion Soin',eff:{potion:'soin'}},{label:'+Anti-Poison',eff:{item:'antipoison'}}]},
+     {de:3,choix:[{label:'+1 Armure',eff:{armure:1}},{label:'+1 Nourriture',eff:{nourriture:1}}]},
+     {de:4,choix:[{label:'+1 Émeraude',eff:{emmeraude:1}},{label:'+3 Or',eff:{or:3}}]},
+     {de:5,choix:[{label:'+2 Or',eff:{or:2}},{label:'+Pomme Dorée',eff:{pomme_doree:true}}]},
+     {de:6,choix:[{label:'+Pomme Dorée',eff:{pomme_doree:true}},{label:'+Fleur Force',eff:{item:'fleur_force'}}]}
+   ]},
+  {id:'amitie',type:'tresor',nom:"L'Amitié",icon:'🤝',zone:'citadelle',isAmitie:true},
+
+  /* TRÉSORS PACK */
+  {id:'tresor_piege',type:'tresor',nom:'Trésor Piégé',icon:'💣',zone:'citadelle',isPack:true,
+   res:[
+     {de:1,label:'-2 PV + Aveuglement',eff:{pv:-2,aveuglement:true}},
+     {de:2,label:'-2 PV + Aveuglement',eff:{pv:-2,aveuglement:true}},
+     {de:3,label:'-2 PV + Aveuglement',eff:{pv:-2,aveuglement:true}},
+     {de:4,label:'-2 PV + Aveuglement',eff:{pv:-2,aveuglement:true}},
+     {de:5,label:'+3 Or',eff:{or:3}},
+     {de:6,label:'+3 Or',eff:{or:3}}
+   ]},
+
+  /* COMMERCE DISPO */
+  {id:'marchand_cita',type:'commerce',nom:'Marchand',icon:'🧙',zone:'citadelle',
+   achats:[
+     {label:'+1 Nourriture',cout:3,eff:{nourriture:1}},
+     {label:'+1 Armure',cout:4,eff:{armure:1}},
+     {label:'+Pomme Dorée',cout:2,eff:{pomme_doree:true}}
+   ],
+   ventes:[
+     {label:'Vendre Potion',gain:2,type:'potion'},
+     {label:'Vendre Armure',gain:1,type:'armure',gain_emmeraude:1}
+   ]},
+  {id:'marchand_vereux',type:'commerce',nom:'Marchand Véreux',icon:'🤑',zone:'citadelle',
+   achats:[
+     {label:'+1 Nourriture',cout:5,eff:{nourriture:1}},
+     {label:'+Fleur au choix',cout:3,eff:{fleur_choix:true}}
+   ],
+   ventes:[
+     {label:'Vendre Nourriture',gain:1,type:'nourriture'},
+     {label:'Vendre Émeraude',gain:1,type:'emmeraude'}
+   ]},
+
+  /* COMMERCE PACK */
+  {id:'pharmacie',type:'commerce',nom:'Pharmacie',icon:'💊',zone:'citadelle',isPack:true,
+   achats:[
+     {label:'+Eau Bénite',cout:3,eff:{item:'eau_benite'}},
+     {label:'+Potion Soin',cout:2,eff:{potion:'soin'}},
+     {label:'+Anti-Poison',cout:2,eff:{item:'antipoison'}}
+   ],
+   ventes:[]},
+
+  /* CONTRES DISPO */
+  {id:'rencontre_paladin',type:'evenement',nom:'Rencontre Paladin',icon:'⚜',zone:'citadelle',isRencontrePaladin:true},
+  {id:'reparation_patrimoine',type:'evenement',nom:'Réparation du Patrimoine',icon:'🏛',zone:'citadelle',isReparation:true},
+
+  /* CONTRES PACK */
+  {id:'voyant',type:'evenement',nom:'Voyant',icon:'🔮',zone:'citadelle',isPack:true,isVoyant:true},
+
+  /* LIEUX DISPO */
+  {id:'rempart',type:'lieu',nom:'Rempart',icon:'🏰',zone:'citadelle',isRempart:true},
+  {id:'salle_arsenal',type:'lieu',nom:"Salle d'Arsenal",icon:'⚔',zone:'citadelle',
+   res:[
+     {de:1,label:'-2 PV',eff:{pv:-2}},
+     {de:2,label:'-1 PV',eff:{pv:-1}},
+     {de:3,label:'Saignement',eff:{saignement:true}},
+     {de:4,label:'+3 Or +1 ⚡',eff:{or:3,eclair:1}},
+     {de:5,label:'+1 Armure',eff:{armure:1}},
+     {de:6,label:'+2 ⚡',eff:{eclair:2}}
+   ]},
+  {id:'jardin',type:'lieu',nom:'Jardin',icon:'🌸',zone:'citadelle',
+   res:[
+     {de:1,label:'+Fleur Force',eff:{item:'fleur_force'}},
+     {de:2,label:'+Fleur Force',eff:{item:'fleur_force'}},
+     {de:3,label:'+Fleur Défense',eff:{item:'fleur_defense'}},
+     {de:4,label:'+Fleur Défense',eff:{item:'fleur_defense'}},
+     {de:5,label:'+Fleur Esquive',eff:{item:'fleur_esquive'}},
+     {de:6,label:'+Fleur Esquive',eff:{item:'fleur_esquive'}}
+   ]},
+  {id:'salle_bal',type:'lieu',nom:'Salle du Bal',icon:'💃',zone:'citadelle',
+   res:[
+     {de:1,label:'-2 XP',eff:{xp:-2}},{de:2,label:'-2 XP',eff:{xp:-2}},{de:3,label:'-2 XP',eff:{xp:-2}},
+     {de:4,label:'+2 XP',eff:{xp:2}},{de:5,label:'+2 XP',eff:{xp:2}},{de:6,label:'+2 XP',eff:{xp:2}}
+   ]},
+
+  /* LIEUX PACK */
+  {id:'chambre_temporelle',type:'lieu',nom:'Chambre Temporelle',icon:'⏱',zone:'citadelle',isPack:true,isChambreTemporelle:true},
+
+  /* LIEUX CHANCE DISPO */
+  {id:'salle_repas',type:'lieu',nom:'Salle du Repas',icon:'🍽',zone:'citadelle',
+   res:[
+     {de:1,label:'-1 Nourriture',eff:{nourriture:-1}},
+     {de:2,label:'+1 Nourriture',eff:{nourriture:1}},
+     {de:3,label:'+Pomme Dorée',eff:{pomme_doree:true}},
+     {de:4,label:'+Potion Soin',eff:{potion:'soin'}},
+     {de:5,label:'+2 Nourriture',eff:{nourriture:2}},
+     {de:6,label:'+1 Nourriture + Empoisonné',eff:{nourriture:1,poison:true}}
+   ]},
+  {id:'sanctuaire_cita',type:'lieu',nom:'Sanctuaire',icon:'🕯',zone:'citadelle',
+   res:[
+     {de:1,label:'-2 XP + Maudit',eff:{xp:-2,maudit:true}},
+     {de:2,label:'-2 XP + Maudit',eff:{xp:-2,maudit:true}},
+     {de:3,label:'-2 XP + Maudit',eff:{xp:-2,maudit:true}},
+     {de:4,label:'-2 XP + Maudit',eff:{xp:-2,maudit:true}},
+     {de:5,label:'+3 XP',eff:{xp:3}},
+     {de:6,label:'+3 XP',eff:{xp:3}}
+   ]},
+  {id:'laboratoire',type:'lieu',nom:'Laboratoire',icon:'⚗',zone:'citadelle',isLaboratoire:true},
+
+  /* LIEUX CHANCE PACK */
+  {id:'fontaine_cita',type:'lieu',nom:'Fontaine',icon:'⛲',zone:'citadelle',isPack:true,isFontaineCita:true},
+  {id:'passage_secret_cita',type:'lieu',nom:'Passage Secret',icon:'🗝',zone:'citadelle',isPack:true,
+   desc:'Pioche une Carte Histoire.',isPassageSecretCita:true}
+];
+
 const BOSS=[
+  // CITADELLE
+  {id:'liche',nom:'La Liche',icon:'💀',zone:'citadelle',isLiche:true,
+   sc:[
+     {pv:50,pvCoop:100,pv2:30,pvCoop2:65,atk:5,atk2:3,maudit:true,outre2:true,etourdi2:true,xp:0,emmeraude:5,tresor:true},
+     {pv:67,pvCoop:130,pv2:33,pvCoop2:70,atk:6,atk2:3,maudit:true,outre2:true,etourdi2:true,xp:0,emmeraude:7,tresor:true},
+     {pv:70,pvCoop:140,pv2:35,pvCoop2:75,atk:6,atk2:3,maudit:true,outre2:true,etourdi2:true,poison2:true,maudit2:true,xp:0,emmeraude:10,tresor:true}
+   ]},
   // ÉGOUTS
   {id:'reine',nom:'Reine Araignée',icon:'🕷',zone:'egouts',
    sc:[{pv:12,pvCoop:24,atk:2,poison:true,xp:2,or:0,tresor:true},{pv:16,pvCoop:32,atk:4,poison:true,xp:3,or:0,tresor:true},{pv:20,pvCoop:40,atk:6,poison:true,xp:4,or:0,tresor:true},{pv:24,pvCoop:48,atk:8,poison:true,xp:5,or:0,tresor:true},{pv:25,pvCoop:50,atk:9,poison:true,xp:5,or:0,tresor:true}]},
@@ -1064,13 +1256,15 @@ function buildClassSelect(){
 function startGame(){
   if(!selCls)return;
   const c=CLASSES[selCls];
-  // Ordre aléatoire des 3 zones : Égouts (0), Catacombes (1), Donjon (2)
-  const zoneOrder=fy([0,1,2]);
+  // Citadelle (zone 3) est toujours en dernière position
+  // Les 3 premières zones (0=Égouts, 1=Catacombes, 2=Donjon) sont dans un ordre aléatoire
+  const zoneOrder=[...fy([0,1,2]),3];
   // zoneIndex = identifiant de zone (0=Égouts, 1=Catacombes)
   // scIndex   = index dans sc[] des cartes (0 pour 1ère zone, 1 pour 2ème, etc.)
   const zi=zoneOrder[0];
   gs={j:{...JSON.parse(JSON.stringify(c)),inventaire:c.startItem?[{id:c.startItem,nom:nomItem(c.startItem)}]:[],
-      statuts:[],skUsed:[false,false],emmeraude:0,eclair:0,fleur_force:0,fleur_defense:0,fleur_esquive:0,_fleurActive:null,froid:0,pvOr:0,_glaceTour:false,_skipTour:false},
+      statuts:[],skUsed:[false,false],emmeraude:0,eclair:0,fleur_force:0,fleur_defense:0,fleur_esquive:0,_fleurActive:null,froid:0,pvOr:0,_glaceTour:false,_skipTour:false,
+      xp:(meta.bonusDepart?.xp||0),},
     grille:[],pos:0,etage:1,
     zoneOrder,zoneStep:0,zoneIndex:zi,scIndex:0,
     etageMax:etageMaxZone(zi),
@@ -1084,17 +1278,17 @@ function startGame(){
 function newGrille(){
   // usedCardIds par zone pour éviter les répétitions
   if(!gs.usedCardIds) gs.usedCardIds={};
-  const zoneKey=gs.zoneIndex===0?'egouts':gs.zoneIndex===1?'catacombes':'donjon';
+  const zoneKey=gs.zoneIndex===0?'egouts':gs.zoneIndex===1?'catacombes':gs.zoneIndex===2?'donjon':'citadelle';
   const usedIds=new Set(gs.usedCardIds[zoneKey]||[]);
 
-  const allCartes=gs.zoneIndex===0?[...CARTES]:gs.zoneIndex===1?[...CARTES_CATACOMBES]:[...CARTES_DONJON];
+  const allCartes=gs.zoneIndex===0?[...CARTES]:gs.zoneIndex===1?[...CARTES_CATACOMBES]:gs.zoneIndex===2?[...CARTES_DONJON]:[...CARTES_CITADELLE];
   const pool=fy(allCartes.filter(c=>!c.isPack&&!usedIds.has(c.id)));
   const src=pool.length>=8?pool:fy(allCartes.filter(c=>!c.isPack));
   gs.grille=src.slice(0,8).map(c=>({...c,pvActuel:null,visited:false,revealed:false}));
 
   if(!gs.usedCardIds[zoneKey]) gs.usedCardIds[zoneKey]=[];
 
-  const zoneStr=gs.zoneIndex===0?'egouts':gs.zoneIndex===1?'catacombes':'donjon';
+  const zoneStr=gs.zoneIndex===0?'egouts':gs.zoneIndex===1?'catacombes':gs.zoneIndex===2?'donjon':'citadelle';
   const bossZone=BOSS.filter(b=>b.zone===zoneStr&&!b.isPack);
   console.log(`[newGrille] étage ${gs.etage}/${gs.etageMax} zone=${zoneStr} bossDispo=${bossZone.length}`);
   if(gs.etage===gs.etageMax&&bossZone.length>0){
@@ -1114,7 +1308,7 @@ function renderGame(){
   document.getElementById('zone-lbl').innerHTML=`⚔ ${zNom} <span>Étage ${gs.etage}/${gs.etageMax}</span>`;
   // Classe de zone sur la grille pour le dos des cartes
   const gridEl=document.getElementById('cards-grid');
-  gridEl.className=`cards-grid zone-${gs.zoneIndex===0?'egouts':gs.zoneIndex===1?'catacombes':'donjon'}`;
+  gridEl.className=`cards-grid zone-${gs.zoneIndex===0?'egouts':gs.zoneIndex===1?'catacombes':gs.zoneIndex===2?'donjon':'citadelle'}`;
   document.getElementById('hdr-em').textContent='💎 '+(gs.j?gs.j.emmeraude||0:0);
   document.getElementById('hdr-eclair').textContent='⚡ '+(gs.j?gs.j.eclair:0);
   const grid=document.getElementById('cards-grid');grid.innerHTML='';
@@ -1155,7 +1349,7 @@ function goTo(i){
   if(gs.locked)return;
   gs.pos=i;gs.grille[i].visited=true;gs.locked=true;
   // Enregistrer la carte comme utilisée (pour ne pas la revoir)
-  const zk=gs.zoneIndex===0?'egouts':gs.zoneIndex===1?'catacombes':'donjon';
+  const zk=gs.zoneIndex===0?'egouts':gs.zoneIndex===1?'catacombes':gs.zoneIndex===2?'donjon':'citadelle';
   if(!gs.usedCardIds) gs.usedCardIds={};
   if(!gs.usedCardIds[zk]) gs.usedCardIds[zk]=[];
   const cid=gs.grille[i]?.id;
@@ -1279,7 +1473,8 @@ function animDieEnnemi(el,finalVal){
 function bCombat(c,ei,isFantome){
   if(c.pvActuel===null||c.pvActuel===undefined) c.pvActuel=c.sc[ei].pv;
   const s=c.sc[ei];const j=gs.j;
-  const ep=Math.max(0,c.pvActuel/s.pv*100),jp=Math.max(0,j.pv/j.pvMax*100);
+  const pvMax=c.isLiche&&c._phase2?s.pv2:s.pv;
+  const ep=Math.max(0,c.pvActuel/pvMax*100),jp=Math.max(0,j.pv/j.pvMax*100);
   const cls=Object.keys(CLASSES).find(k=>CLASSES[k].name===j.name);
   const cd=CLASSES[cls];
   let tools='';
@@ -1298,7 +1493,7 @@ function bCombat(c,ei,isFantome){
   return `
   <div class="msec"><div class="msec-title">Ennemi</div>
     <div class="mon-hdr">
-      <div class="mon-stat">❤️ <span id="epv">${c.pvActuel}/${s.pv}</span></div>
+      <div class="mon-stat">❤️ <span id="epv">${c.pvActuel}/${pvMax}${c.isLiche?c._phase2?' [Phase 2]':' [Phase 1]':''}</span></div>
       <div class="mon-stat">⚔ <span>${s.dieDmg?'🎲1-6':s.atk}</span></div>
       ${s.poison?'<div class="mon-stat">🟢 <span>Poison</span></div>':''}
       ${s.outre?'<div class="mon-stat" style="color:var(--red-light)">🔴 <span>Ignore Armure</span></div>':''}
@@ -1447,10 +1642,17 @@ function attaquer(skipJoueur=false){
     upEl('epv',`${c.pvActuel}/${s.pv}`);
     upEl2('ehp',`width:${Math.max(0,c.pvActuel/s.pv*100)}%`);
     let log=`<span class="tgood2">Vous infligez <strong>${atk}</strong> dégâts${bonusAtk?' (+Fleur)':''}.${skipE?' 🌸 Ennemi esquivé':''}</span><br>`;
-    // ═══ Si ennemi mort → victoire sans dégâts ═══
+    // ═══ Si ennemi mort → victoire ou phase 2 ═══
     if(c.pvActuel<=0){
-      document.getElementById('clog').innerHTML=log+`<span class="tgood2">L'ennemi est vaincu avant de pouvoir riposter !</span>`;
-      finCombat(ci);return;
+      document.getElementById('clog').innerHTML=log;
+      if(!checkEnnemiMort(ci)){
+        // Phase 2 Liche — mettre à jour l'affichage et continuer
+        const pvMax2=c.sc[scIdx(c)].pv2||30;
+        upEl('epv',`${c.pvActuel}/${pvMax2} [Phase 2]`);
+        upEl2('ehp','width:100%');
+        setTimeout(()=>{const b=document.getElementById('batk');if(b)b.disabled=false;},300);
+      }
+      return;
     }
     // ═══ TOUR DE L'ENNEMI : lancer son dé ═══
     // Si glace active, ennemi ne joue pas ce tour
@@ -1475,8 +1677,8 @@ function attaquer(skipJoueur=false){
     let log=document.getElementById('clog')?.innerHTML||'';
     if(ve===0){log+=`<span class="tinfo">L'ennemi rate son attaque (✕).</span><br>`;}
     else{
-      const atkBase=s2.dieDmg?rnd(6):s2.atk;
-      const crit=ve===7;const ign=crit||s2.outre;
+      const atkBase=s2.dieDmg?rnd(6):(c.isLiche&&c._phase2?(s2.atk2||s2.atk):s2.atk);
+      const crit=ve===7;const ign=crit||(c.isLiche&&c._phase2?s2.outre2:s2.outre);
       const armTot=j.armure+bonusArm;const abs=(!ign&&armTot>0)?Math.min(armTot,atkBase):0;const dmg=atkBase-abs;
       infligerDmg(j,dmg,ign);
       if(crit) log+=`<span class="tbad2">★ CRITIQUE ! Ignore armure !</span><br>`;
@@ -1746,7 +1948,7 @@ function lancerTresorVictoire(ci,isBoss){
   if(clogEl) clogEl.innerHTML+=`<br><span style="color:var(--gold);font-size:.74rem">💰 Trésor de victoire :</span><div class="die-zone"><div class="die pending" id="${tmpId}">?</div></div>`;
   const de=rnd(6);
   animDie(document.getElementById(tmpId),de,'good').then(()=>{
-    const tresorId=gs.zoneIndex===0?'tresor':gs.zoneIndex===1?'tresor_cat':'tresor_donjon';
+    const tresorId=gs.zoneIndex===0?'tresor':gs.zoneIndex===1?'tresor_cat':gs.zoneIndex===2?'tresor_donjon':'tresor_cita';
     const ct=findCarte(tresorId);const r=ct.res[de-1];
     const cbtns=document.getElementById('cbtns');
     const nextBtn=isBoss
@@ -1773,7 +1975,22 @@ function lancerTresorVictoire(ci,isBoss){
 /* ══ Potion/Compétence en combat → vérifier mort ennemi ══ */
 function checkEnnemiMort(ci){
   const c=gs.grille[ci];if(!c)return false;
-  if(c.pvActuel<=0){finCombat(ci);return true;}return false;
+  if(c.pvActuel<=0){
+    // Liche : transition phase 2
+    if(c.isLiche&&!c._phase2){
+      const s=c.sc[scIdx(c)];
+      c._phase2=true;
+      c.pvActuel=s.pv2||30;
+      logMsg('💀 La Liche entre en Phase 2 !','bad');
+      const cl=document.getElementById('clog');
+      if(cl){const sp=document.createElement('span');sp.innerHTML=`<br><span style="color:#cc7ae8;font-size:.9rem;font-family:'Cinzel',serif">💀 PHASE 2 — La Liche se régénère !</span><br>`;cl.appendChild(sp);}
+      upEl('epv',`${c.pvActuel}/${s.pv2}`);
+      upEl2('ehp','width:100%');
+      return false;
+    }
+    finCombat(ci);return true;
+  }
+  return false;
 }
 
 function potCombat(type){
@@ -1835,6 +2052,9 @@ function bPiege(c){
   if(c.isIllusion) return bIllusion(c);
   if(c.id==='sol_fragile') return bSolFragile();
   if(c.isPicsDonjon) return bPicsDonjon();
+  if(c.isPiegeTemporel) return bPiegeTemporel();
+  if(c.isPrisonCita) return bPrisonCita();
+  if(c.isFosseLoups) return bFosseLoups();
   // Porte mécanique / Bombe : dé de situation sans dé de réussite
   if(c.isPorteMecanique){
     let t=`<table class="rtable"><tr><th>Dé</th><th>Effet</th></tr>`;
@@ -2068,6 +2288,11 @@ function bLieu(c){
   if(c.isLatrines) return bLatrines();
   if(c.isArene) return bArene();
   if(c.isPuzzle) return bPuzzle(c);
+  if(c.isChambreTemporelle) return bChambreTemporelle();
+  if(c.isRempart) return bRempart();
+  if(c.isLaboratoire) return bLaboratoire();
+  if(c.isFontaineCita) return bFontaineCita();
+  if(c.isPassageSecretCita){bPassageSecretCita();return '';}
   if(c.isMurEtrange) return bMurEtrange();
   if(c.isCorpsPendu) return bCorpsPendu();
   if(c.isFlambeaux) return bFlambeaux();
@@ -2486,6 +2711,8 @@ function vendreFleurChoisie(key,gain){
 /* ══════ TRÉSOR ══════ */
 function bTresor(c,ei){
   if(c.isMimic||c.isMonstre){if(c.pvActuel===null||c.pvActuel===undefined)c.pvActuel=c.sc[ei].pv;return bCombat(c,ei);}
+  if(c.isAmitie) return bAmitie();
+  if(!c.res) return `<div class="mactions"><button class="btn-a ok" onclick="closePanel()">Continuer</button></div>`;
   let t=`<table class="rtable"><tr><th>Dé</th><th>Résultat</th></tr>`;
   c.res.forEach(r=>{const lbl=r.choix?r.choix.map(x=>x.label).join(' / '):r.label||'';t+=`<tr><td class="dnum">${r.de}</td><td>${lbl}</td></tr>`;});t+=`</table>`;
   return `<div class="msec"><div class="msec-title">Résultats possibles</div>${t}</div>
@@ -2590,6 +2817,10 @@ function bEvt(c){
   if(c.isOiseauSympa) return bOiseauSympa();
   if(c.isSqueletteSympa) return bSqueletteSympa();
   if(c.isHotelTombe) return bHotelTombe();
+  if(c.isRencontrePaladin) return bRencontrePaladin();
+  if(c.isReparation) return bReparation();
+  if(c.isVoyant) return bVoyant();
+  if(c.isAmitie) return bAmitie();
   if(c.choix){let h=`<div class="msec"><div class="msec-title">Que faites-vous ?</div><div class="mactions">`;c.choix.forEach((ch,i)=>{h+=`<button class="btn-a" onclick="doEvtChoix(${i},'${c.id}')">${ch.label}</button>`;});return h+`</div></div>`;}
   return `<div class="mactions"><button class="btn-a ok" onclick="closePanel()">Continuer</button></div>`;
 }
@@ -2682,7 +2913,7 @@ function doSkip(i){
   if(gs.grille[i].type==='boss'){logMsg('Impossible sur le boss !','bad');return;}
   gs.grille[i].visited=true;gs.pos=i;if(i<8)reveler(i);
   // Tracker la carte comme visitée
-  const zk=gs.zoneIndex===0?'egouts':gs.zoneIndex===1?'catacombes':'donjon';
+  const zk=gs.zoneIndex===0?'egouts':gs.zoneIndex===1?'catacombes':gs.zoneIndex===2?'donjon':'citadelle';
   if(!gs.usedCardIds) gs.usedCardIds={};
   if(!gs.usedCardIds[zk]) gs.usedCardIds[zk]=[];
   const cid=gs.grille[i]?.id;
@@ -2993,7 +3224,7 @@ function renderTestFilters(){
 
 function renderTestCardList(){
   const div=document.getElementById('test-card-list');
-  const allCards=[...CARTES,...CARTES_CATACOMBES,...CARTES_DONJON,...BOSS.map(b=>({...b,type:'boss'}))];
+  const allCards=[...CARTES,...CARTES_CATACOMBES,...CARTES_DONJON,...CARTES_CITADELLE,...BOSS.map(b=>({...b,type:'boss'}))];
   const filtered=testState.filtreType==='Tous'?allCards:allCards.filter(c=>c.type===testState.filtreType);
   div.innerHTML=filtered.map(c=>`
     <div onclick="lancerCarteTest('${c.id}')"
@@ -3009,7 +3240,7 @@ function renderTestCardList(){
 
 function lancerCarteTest(id){
   // Trouver la carte dans CARTES ou BOSS
-  const allCards=[...CARTES,...CARTES_CATACOMBES,...CARTES_DONJON,...BOSS.map(b=>({...b,type:'boss'}))];
+  const allCards=[...CARTES,...CARTES_CATACOMBES,...CARTES_DONJON,...CARTES_CITADELLE,...BOSS.map(b=>({...b,type:'boss'}))];
   const carteSource=allCards.find(c=>c.id===id);
   if(!carteSource)return;
 
@@ -3020,7 +3251,7 @@ function lancerCarteTest(id){
   gs.locked=false;
   // Ajuster zoneIndex selon la zone de la carte pour scIdx()
   const zoneStr=(carteSource.zone||'').toLowerCase();
-  gs.zoneIndex=zoneStr.includes('donjon')?2:zoneStr.includes('catacombes')?1:0;
+  gs.zoneIndex=zoneStr.includes('citadelle')?3:zoneStr.includes('donjon')?2:zoneStr.includes('catacombes')?1:0;
   gs.scIndex=0;
 
   // Rediriger openPanel vers le panneau de test
@@ -3500,7 +3731,7 @@ function lanceBoulesCristal(){
   const j=gs.j;let de=rnd(6);
   if(j._offrande){de=Math.min(6,de+1);j._offrande=false;}
   animDie(document.getElementById('l-die'),de,'').then(()=>{
-    const bossZone=BOSS.filter(b=>b.zone===(gs.zoneIndex===0?'egouts':gs.zoneIndex===1?'catacombes':'donjon')&&!b.isPack);
+    const bossZone=BOSS.filter(b=>b.zone===(gs.zoneIndex===0?'egouts':gs.zoneIndex===1?'catacombes':gs.zoneIndex===2?'donjon':'citadelle')&&!b.isPack);
     const lr=document.getElementById('lr');
     if(de>=4&&bossZone.length>0){
       const b=bossZone[Math.floor(Math.random()*bossZone.length)];
@@ -3727,6 +3958,354 @@ function sorciereAllie(){
   // Marquer comme vaincue
   const c=gs.grille[gs.active];if(c)c.pvActuel=0;
   finCombat(gs.active);
+}
+
+/* ══ CARTES SPÉCIALES CITADELLE ══ */
+
+function bPrisonCita(){
+  const j=gs.j;
+  // Dégâts selon la zone (scIndex = 0/1/2 pour zones 4/5/6)
+  const dmgParZone=[3,4,5];
+  const dmg=dmgParZone[gs.scIndex]||3;
+  const diceHtml=[...Array(j.des)].map((_,i)=>`<div class="die pending" id="pr${i}">?</div>`).join('');
+  return `<div class="msec"><div class="msec-title">⛓ Prison</div>
+    <table class="rtable"><tr><th class="tgood">Réussite ⭐</th><th class="tbad">Échec</th></tr>
+      <tr><td class="tgood">Rien</td><td class="tbad">-${dmg} PV + recommence</td></tr>
+    </table></div>
+  <div class="msec">
+    <div class="die-zone">${diceHtml}</div>
+    <div class="rzone" id="prison-r"></div>
+    <div class="mactions" id="prison-btns"><button class="btn-a" onclick="lancePrison(${dmg})">🎲 Lancer</button></div>
+  </div>`;
+}
+function lancePrison(dmg){
+  const btn=document.querySelector('#prison-btns .btn-a');if(btn)btn.disabled=true;
+  const j=gs.j;const vals=[];
+  for(let i=0;i<j.des;i++){let v=rnd(6);if(j.statuts.includes('maudit'))v=Math.max(1,v-1);vals.push(v);}
+  Promise.all(vals.map((v,i)=>animDie(document.getElementById(`pr${i}`),v,v>=5?'good':'bad'))).then(()=>{
+    const ok=vals.some(v=>v>=5);
+    const r=document.getElementById('prison-r');
+    if(ok){
+      if(r) r.innerHTML=`<span class="tgood">✅ Échappé !</span>`;
+      document.getElementById('prison-btns').innerHTML=`<button class="btn-a ok" onclick="closePanel()">Continuer</button>`;
+    } else {
+      j.pv=Math.max(0,j.pv-dmg);
+      renderSheet();
+      upEl2('jhp',`width:${Math.max(0,j.pv/j.pvMax*100)}%`);
+      upEl('jpv',j.pvOr>0?`${j.pv}/${j.pvMax}+${j.pvOr}🍎`:`${j.pv}/${j.pvMax}`);
+      if(r) r.innerHTML=`<span class="tbad">❌ -${dmg} PV ! (${j.pv}/${j.pvMax} PV restants)</span>`;
+      if(j.pv<=0){closePanel();finPartie(false);return;}
+      document.getElementById('prison-btns').innerHTML=`<button class="btn-a bad" onclick="lancePrison(${dmg})">🎲 Relancer (obligatoire)</button>`;
+    }
+  });
+}
+
+function bFosseLoups(){
+  const j=gs.j;
+  return `<div class="msec"><div class="msec-title">🐺 Fosse aux Loups</div>
+    <table class="rtable"><tr><th>Dé</th><th>Réussite ⭐</th><th>Échec</th></tr>
+      <tr><td class="dnum">1 / 5</td><td class="tinfo">Rien</td><td class="tbad">Combat 1 Loup</td></tr>
+      <tr><td class="dnum">2 / 3</td><td class="tgood">+2 XP</td><td class="tbad">Combat 2 Loups</td></tr>
+      <tr><td class="dnum">4 / 6</td><td class="tgood">+1 PV</td><td class="tinfo">Rien</td></tr>
+    </table></div>
+  <div class="msec">
+    <div class="die-zone"><div class="die pending" id="fl-sit">?</div></div>
+    <div class="rzone" id="fl-r"></div>
+    <div class="mactions" id="fl-btns">
+      <button class="btn-a" onclick="lanceFosseLoups()">🎲 Dé situation</button>
+    </div>
+  </div>`;
+}
+function lanceFosseLoups(){
+  const btn=document.querySelector('#fl-btns .btn-a');if(btn)btn.disabled=true;
+  const de=rnd(6);const j=gs.j;
+  animDie(document.getElementById('fl-sit'),de,'').then(()=>{
+    const r=document.getElementById('fl-r');
+    const btns=document.getElementById('fl-btns');
+    if(de===4||de===6){
+      // Réussite : +1 PV
+      j.pv=Math.min(j.pvMax,j.pv+1);renderSheet();
+      if(r) r.innerHTML=`<span class="tgood">Dé ${de} — +1 PV !</span>`;
+      if(btns) btns.innerHTML=`<button class="btn-a ok" onclick="closePanel()">Continuer</button>`;
+    } else {
+      // Dé 1/5 ou 2/3 → dé de réussite
+      const nbLoups=(de===1||de===5)?1:2;
+      const bonusOk=nbLoups===2?{xp:2}:null;
+      if(r) r.innerHTML=`<span class="tinfo">Dé ${de} — Dé de réussite !</span>`;
+      // Afficher dés de réussite
+      const diceHtml=[...Array(j.des)].map((_,i)=>`<div class="die pending" id="fl-j${i}">?</div>`).join('');
+      if(btns) btns.innerHTML=`<div class="die-zone">${diceHtml}</div>
+        <div class="mactions"><button class="btn-a" onclick="lanceFosseLoupsReussite(${nbLoups},'${bonusOk?enc(bonusOk):''}')">🎲 Dé réussite</button></div>`;
+    }
+  });
+}
+function lanceFosseLoupsReussite(nbLoups,bonusEnc){
+  const btn=document.querySelector('#fl-btns .mactions .btn-a');if(btn)btn.disabled=true;
+  const j=gs.j;const vals=[];
+  for(let i=0;i<j.des;i++){let v=rnd(6);if(j.statuts.includes('maudit'))v=Math.max(1,v-1);vals.push(v);}
+  Promise.all(vals.map((v,i)=>animDie(document.getElementById(`fl-j${i}`),v,v>=5?'good':'bad'))).then(()=>{
+    const ok=vals.some(v=>v>=5);const r=document.getElementById('fl-r');const btns=document.getElementById('fl-btns');
+    if(ok){
+      let msg='';
+      if(bonusEnc){try{apply(JSON.parse(decodeURIComponent(escape(atob(bonusEnc)))),j,m=>msg+=m+' ');}catch(e){}}
+      if(r) r.innerHTML=`<span class="tgood">✅ Réussite !${msg?' '+msg:''}</span>`;
+      renderSheet();if(btns) btns.innerHTML=`<button class="btn-a ok" onclick="closePanel()">Continuer</button>`;
+    } else {
+      // Échec : combat contre nbLoups loups
+      if(r) r.innerHTML=`<span class="tbad">❌ Combat contre ${nbLoups} Loup${nbLoups>1?'s Enragés':' Enragé'} !</span>`;
+      closePanel();
+      // Lancer le combat
+      for(let n=0;n<nbLoups;n++){
+        const src=findCarte('loup_enrage');if(!src)continue;
+        const c={...src,pvActuel:null,visited:true,revealed:true,statuts:[]};
+        gs.grille.push(c);
+        if(n===0){gs._fantomeOrigActive=gs.active;gs.active=gs.grille.length-1;openPanel(buildPanel(c));}
+      }
+    }
+  });
+}
+
+function bPiegeTemporel(){
+  return `<div class="msec"><div class="msec-title">⏳ Piège Temporel</div>
+    <div style="font-size:.82rem;color:var(--text-dim);margin-bottom:.5em">Compteur actuel : <b>${compteur}</b> charge${compteur>1?'s':''}</div>
+    <table class="rtable"><tr><th>Résultat</th><th>Effet</th></tr>
+      <tr><td>Dé donjon &gt; Vous</td><td class="tbad">-${compteur||1} PV (compteur reset à 0)</td></tr>
+      <tr><td>Égalité</td><td class="tinfo">Compteur -1</td></tr>
+      <tr><td>Dé donjon &lt; Vous</td><td class="tgood">Sauvé ! Compteur +1</td></tr>
+    </table></div>
+  <div class="msec">
+    <div style="display:flex;gap:1rem;align-items:center">
+      <div><div class="die-lbl">Dé Donjon</div><div class="die-zone"><div class="die pending" id="pt-d">?</div></div></div>
+      <div style="font-family:'Cinzel';color:var(--gold-dim)">vs</div>
+      <div><div class="die-lbl">Votre dé</div><div class="die-zone">${[...Array(j.des)].map((_,i)=>`<div class="die pending" id="pt-j${i}">?</div>`).join('')}</div></div>
+    </div>
+    <div class="rzone" id="pt-r"></div>
+    <div class="mactions" id="pt-btns"><button class="btn-a" onclick="lancePiegeTemporel()">🎲 Lancer</button></div>
+  </div>`;
+}
+function lancePiegeTemporel(){
+  const btn=document.querySelector('#pt-btns .btn-a');if(btn)btn.disabled=true;
+  const j=gs.j;const dD=rnd(6);
+  const vals=[];for(let i=0;i<j.des;i++){let v=rnd(6);if(j.statuts.includes('maudit'))v=Math.max(1,v-1);vals.push(v);}
+  const dJ=Math.max(...vals);
+  if(!meta.temporal) meta.temporal={pv:0,or:0};
+  Promise.all([animDie(document.getElementById('pt-d'),dD,''),
+    ...vals.map((v,i)=>animDie(document.getElementById(`pt-j${i}`),v,v>=5?'good':''))]).then(()=>{
+    const r=document.getElementById('pt-r');
+    let h='';
+    if(dD>dJ){
+      const dmg=Math.max(1,meta.temporal.pv);
+      infligerDmg(j,dmg,true);
+      h=`<span class="tbad">Donjon (${dD}) &gt; Vous (${dJ}) — -${dmg} PV ! Compteur reset.</span>`;
+      meta.temporal.pv=0;saveMeta();
+      if(j.pv<=0){document.getElementById('pt-btns').innerHTML='';closePanel();finPartie(false);return;}
+    } else if(dD===dJ){
+      meta.temporal.pv=Math.max(0,(meta.temporal.pv||0)-1);saveMeta();
+      h=`<span class="tinfo">Égalité — Compteur : ${meta.temporal.pv}</span>`;
+    } else {
+      meta.temporal.pv=(meta.temporal.pv||0)+1;saveMeta();
+      h=`<span class="tgood">Sauvé ! Compteur : ${meta.temporal.pv}</span>`;
+    }
+    if(r) r.innerHTML=h;
+    renderSheet();
+    document.getElementById('pt-btns').innerHTML=`<button class="btn-a ok" onclick="closePanel()">Continuer</button>`;
+  });
+}
+
+function bChambreTemporelle(){
+  if(!meta.temporal) meta.temporal={pv:0,or:0};
+  const cptPv=meta.temporal.pv||0;const cptOr=meta.temporal.or||0;
+  return `<div class="msec"><div class="msec-title">⏱ Chambre Temporelle</div>
+    <div style="font-size:.82rem;color:var(--text-dim);margin-bottom:.4em">Compteurs méta : ❤️ ${cptPv} PV · 🪙 ${cptOr} Or</div>
+    <table class="rtable"><tr><th>Dé</th><th>Effet</th></tr>
+      <tr><td class="dnum">1</td><td class="tgood">+${cptPv} PV (compteur)</td></tr>
+      <tr><td class="dnum">2</td><td class="tgood">+${cptOr} Or (compteur)</td></tr>
+      <tr><td class="dnum">3-4</td><td class="tinfo">Compteur PV méta +1</td></tr>
+      <tr><td class="dnum">5-6</td><td class="tinfo">Compteur Or méta +1</td></tr>
+    </table></div>
+  <div class="msec"><div class="die-zone"><div class="die pending" id="l-die">?</div></div>
+    <div class="rzone" id="lr"></div>
+    <div class="mactions" id="lbtns"><button class="btn-a" id="l-btn" onclick="lanceChambreTemporelle()">🎲 Lancer</button></div>
+  </div>`;
+}
+function lanceChambreTemporelle(){
+  const btn=document.getElementById('l-btn');if(btn)btn.disabled=true;
+  const j=gs.j;const de=rnd(6);
+  animDie(document.getElementById('l-die'),de,'good').then(()=>{
+    if(!meta.temporal) meta.temporal={pv:0,or:0};
+    const lr=document.getElementById('lr');let h='';
+    if(de===1){j.pv=Math.min(j.pvMax,j.pv+(meta.temporal.pv||0));h=`<span class="tgood">+${meta.temporal.pv} PV !</span>`;}
+    else if(de===2){j.or+=(meta.temporal.or||0);h=`<span class="tgood">+${meta.temporal.or} Or !</span>`;}
+    else if(de<=4){meta.temporal.pv=(meta.temporal.pv||0)+1;saveMeta();h=`<span class="tinfo">Compteur PV méta → ${meta.temporal.pv}</span>`;}
+    else{meta.temporal.or=(meta.temporal.or||0)+1;saveMeta();h=`<span class="tinfo">Compteur Or méta → ${meta.temporal.or}</span>`;}
+    if(lr) lr.innerHTML=h;renderSheet();
+    document.getElementById('lbtns').innerHTML=`<button class="btn-a ok" onclick="closePanel()">Continuer</button>`;
+  });
+}
+
+function bAmitie(){
+  const j=gs.j;
+  // Vérifier si les 3 cartes ont été visitées (dans usedCardIds toutes zones confondues)
+  const allVisited=(id)=>Object.values(gs.usedCardIds||{}).some(arr=>arr.includes(id));
+  const hasStand=allVisited('stand_nourriture');
+  const hasPoisson=allVisited('poisson');
+  const hasSqSympa=allVisited('squelette_sympa');
+  const allFound=hasStand&&hasPoisson&&hasSqSympa;
+  const manquants=[];
+  if(!hasStand) manquants.push('Stand de Nourriture');
+  if(!hasPoisson) manquants.push('Poisson Géant');
+  if(!hasSqSympa) manquants.push('Squelette Sympa');
+  if(allFound){
+    return `<div class="msec"><div class="msec-title">🤝 L'Amitié</div>
+      <div style="color:#7dcc5a;font-size:.85rem;margin-bottom:.4em">✅ Vous avez rencontré tous vos amis ! +2 Émeraudes +5 XP</div>
+      <div class="mactions"><button class="btn-a ok" onclick="amitieReclamer()">Récolter</button></div></div>`;
+  }
+  return `<div class="msec"><div class="msec-title">🤝 L'Amitié</div>
+    <div style="color:var(--text-dim);font-size:.82rem;margin-bottom:.4em">Il manque :<br>${manquants.map(m=>`• ${m}`).join('<br>')}</div>
+    <div class="mactions"><button class="btn-a ok" onclick="amitieReclamer()">+1 XP (consolation)</button></div></div>`;
+}
+function amitieReclamer(){
+  const j=gs.j;
+  const allVisited=(id)=>Object.values(gs.usedCardIds||{}).some(arr=>arr.includes(id));
+  const allFound=allVisited('stand_nourriture')&&allVisited('poisson')&&allVisited('squelette_sympa');
+  if(allFound){j.emmeraude=(j.emmeraude||0)+2;j.xp+=5;lvlCheck();logMsg('🤝 Amitié ! +2💎 +5 XP','good');}
+  else{j.xp+=1;lvlCheck();logMsg('+1 XP','good');}
+  renderSheet();closePanel();
+}
+
+function bRencontrePaladin(){
+  const j=gs.j;const cls='paladin';
+  const unlocked=meta.classUpgrades&&meta.classUpgrades[cls];
+  const joue=j.name==='Paladin';
+  let h=`<div class="msec"><div class="msec-title">⚜ Rencontre Paladin</div>`;
+  if(joue){h+=`<div style="color:#7dcc5a;font-size:.85rem">Vous jouez le Paladin ! Rafraîchissement compétences.</div>
+    <div class="mactions"><button class="btn-a ok" onclick="gs.j.skUsed=[false,false];logMsg('⚔ Compétences rechargées !','good');renderSheet();closePanel()">Rafraîchir</button></div>`;}
+  else if(!unlocked){h+=`<div style="font-size:.82rem;color:var(--text-dim);margin-bottom:.4em">Débloqué ! Le Paladin peut être joué pour 20💎 dans le menu.</div>
+    ${!meta.classUpgrades?'':''}<div class="mactions"><button class="btn-a ok" onclick="closePanel()">Continuer</button></div>`; 
+    if(!meta.classUpgrades) meta.classUpgrades={};
+    meta.classUpgrades[cls+'_found']=true;saveMeta();}
+  else{h+=`<div style="font-size:.82rem;color:var(--text-dim)">Le Paladin a déjà été rencontré.</div>
+    <div class="mactions"><button class="btn-a ok" onclick="closePanel()">Continuer</button></div>`;}
+  return h+'</div>';
+}
+
+function bReparation(){
+  const j=gs.j;
+  return `<div class="msec"><div class="msec-title">🏛 Réparation du Patrimoine</div>
+    <div style="font-size:.82rem;color:var(--text-dim);margin-bottom:.4em">Choisissez votre contribution.</div>
+    <div class="mactions">
+      <button class="btn-a bad" onclick="reparationPV()">-3 PV (outre armure) → +7 XP</button>
+      <button class="btn-a ok" ${j.or<10?'disabled':''} onclick="applyEnc('${enc({or:-10,xp:4})}','-10 Or → +4 XP')">-10 Or → +4 XP</button>
+      <button class="btn-a ok" onclick="closePanel()">Ignorer</button>
+    </div></div>`;
+}
+function reparationPV(){
+  const j=gs.j;
+  // -3 PV outre armure (ignore l'armure) + 7 XP
+  j.pv=Math.max(0,j.pv-3);
+  j.xp+=7;lvlCheck();
+  logMsg('-3 PV (outre armure) +7 XP','good');
+  renderSheet();
+  if(j.pv<=0){closePanel();finPartie(false);return;}
+  closePanel();
+}
+
+function bVoyant(){
+  const j=gs.j;
+  return `<div class="msec"><div class="msec-title">🔮 Voyant</div>
+    <div style="font-size:.82rem;color:var(--text-dim);margin-bottom:.4em">Payez pour recevoir des visions qui profiteront à votre prochaine partie.</div>
+    <div class="mactions">
+      <button class="btn-a ok" ${j.xp<6||j.or<2?'disabled':''} onclick="voyantPayer(6,2,3)">-6 XP -2 Or → +3 XP départ prochaine partie</button>
+      <button class="btn-a ok" ${j.xp<12||j.or<4?'disabled':''} onclick="voyantPayer(12,4,6)">-12 XP -4 Or → +6 XP départ prochaine partie</button>
+      <button class="btn-a ok" onclick="closePanel()">Ignorer</button>
+    </div></div>`;
+}
+function voyantPayer(xpCout,orCout,xpBonus){
+  const j=gs.j;if(j.xp<xpCout||j.or<orCout)return;
+  j.xp-=xpCout;j.or-=orCout;
+  if(!meta.bonusDepart) meta.bonusDepart={xp:0};
+  meta.bonusDepart.xp=(meta.bonusDepart.xp||0)+xpBonus;
+  saveMeta();logMsg(`🔮 Voyant — +${xpBonus} XP à la prochaine partie !`,'good');
+  renderSheet();closePanel();
+}
+
+function bRempart(){
+  const j=gs.j;
+  if(j.armure>=2){
+    // Combat contre arbalétrier
+    const src=findCarte('arbaletrier');if(!src)return `<div>Erreur</div>`;
+    const c={...src,pvActuel:null,visited:true,revealed:true,statuts:[]};
+    gs.grille.push(c);gs._fantomeOrigActive=gs.active;gs.active=gs.grille.length-1;
+    return buildPanel(c);
+  }
+  return `<div class="msec"><div class="msec-title">🏰 Rempart</div>
+    <div style="color:var(--text-dim);font-size:.82rem;margin-bottom:.4em">Armure insuffisante (vous avez ${j.armure}, besoin 2). Vous trouvez une armure abandonnée.</div>
+    <div class="mactions"><button class="btn-a ok" onclick="applyEnc('${enc({armure:1})}','+1 Armure')">+1 Armure</button></div></div>`;
+}
+
+function bFontaineCita(){
+  const j=gs.j;
+  return `<div class="msec"><div class="msec-title">⛲ Fontaine</div>
+    <div style="display:flex;gap:1rem;align-items:center;margin:.4em 0">
+      <div><div class="die-lbl">Dé Donjon</div><div class="die-zone"><div class="die pending" id="fct-d">?</div></div></div>
+      <div style="font-family:'Cinzel';color:var(--gold-dim)">vs</div>
+      <div><div class="die-lbl">Votre dé</div><div class="die-zone"><div class="die pending" id="fct-j">?</div></div></div>
+    </div>
+    <div class="rzone" id="fct-r"></div>
+    <div class="mactions" id="fct-btns"><button class="btn-a" onclick="lanceFontaineCita()">🎲 Lancer</button></div>
+  </div>`;
+}
+function lanceFontaineCita(){
+  const btn=document.querySelector('#fct-btns .btn-a');if(btn)btn.disabled=true;
+  const j=gs.j;let dJ=rnd(6);const dD=rnd(6);
+  Promise.all([animDie(document.getElementById('fct-d'),dD,''),animDie(document.getElementById('fct-j'),dJ,dJ>dD?'good':dJ<dD?'bad':'')]).then(()=>{
+    const r=document.getElementById('fct-r');let h='',eff={};
+    if(dD>dJ){if(!j.statuts.includes('empoisonné'))j.statuts.push('empoisonné');h=`<span class="tbad">Empoisonné !</span>`;}
+    else if(dD===dJ){eff={emmeraude:1,item:'eau_benite'};h=`<span class="tgood">Égalité — +1💎 + Eau Bénite !</span>`;}
+    else{eff={item:'eau_benite'};h=`<span class="tgood">+Eau Bénite !</span>`;}
+    apply(eff,j,()=>{});if(r) r.innerHTML=h;renderSheet();
+    document.getElementById('fct-btns').innerHTML=`<button class="btn-a ok" onclick="closePanel()">Continuer</button>`;
+  });
+}
+
+function bLaboratoire(){
+  const j=gs.j;const zi=gs.scIndex;
+  const scenarios=[
+    {sit:'Aveuglement',ok:{item:'perception'},okLabel:'+Perception'},
+    {sit:'Empoisonné',ok:{item:'antipoison'},okLabel:'+Anti-Poison'},
+    {sit:'Saignement',ok:{item:'eau_benite'},okLabel:'+Eau Bénite'}
+  ];
+  const s=scenarios[zi]||scenarios[0];
+  return `<div class="msec"><div class="msec-title">⚗ Laboratoire</div>
+    <div style="font-size:.82rem;color:var(--text-dim);margin-bottom:.4em">Zone ${zi+1} — Expérience en cours...</div>
+    <table class="rtable"><tr><th class="tgood">Réussite</th><th class="tbad">Échec</th></tr>
+      <tr><td class="tgood">${s.okLabel}</td><td class="tbad">${s.sit}</td></tr>
+    </table></div>
+  <div class="msec"><div class="die-zone">${[...Array(j.des)].map((_,i)=>`<div class="die pending" id="lab${i}">?</div>`).join('')}</div>
+    <div class="rzone" id="lab-r"></div>
+    <div class="mactions" id="lab-btns"><button class="btn-a" onclick="lanceLaboratoire('${s.sit}','${enc(s.ok)}','${s.okLabel}')">🎲 Lancer</button></div>
+  </div>`;
+}
+function lanceLaboratoire(sitLabel,okEnc,okLabel){
+  const btn=document.querySelector('#lab-btns .btn-a');if(btn)btn.disabled=true;
+  const j=gs.j;const vals=[];
+  for(let i=0;i<j.des;i++){let v=rnd(6);if(j.statuts.includes('maudit'))v=Math.max(1,v-1);vals.push(v);}
+  Promise.all(vals.map((v,i)=>animDie(document.getElementById(`lab${i}`),v,v>=5?'good':'bad'))).then(()=>{
+    const ok=vals.some(v=>v>=5);const r=document.getElementById('lab-r');let h='';
+    if(ok){try{apply(JSON.parse(decodeURIComponent(escape(atob(okEnc)))),j,()=>{});}catch(e){}h=`<span class="tgood">✅ ${okLabel}</span>`;}
+    else{
+      if(sitLabel==='Aveuglement'&&!j.statuts.includes('aveuglé'))j.statuts.push('aveuglé');
+      else if(sitLabel==='Empoisonné'&&!j.statuts.includes('empoisonné'))j.statuts.push('empoisonné');
+      else if(sitLabel==='Saignement'&&!j.statuts.includes('saignement'))j.statuts.push('saignement');
+      h=`<span class="tbad">❌ ${sitLabel}</span>`;
+    }
+    if(r) r.innerHTML=h;renderSheet();
+    document.getElementById('lab-btns').innerHTML=`<button class="btn-a ok" onclick="closePanel()">Continuer</button>`;
+  });
+}
+
+function bPassageSecretCita(){
+  logMsg('📖 Carte Histoire (à venir)','good');closePanel();
 }
 
 const CODEX_CARTES=[
@@ -3962,6 +4541,80 @@ const CODEX_CARTES=[
    detail:'<b>Pack — Contre</b> — Payez 2Or (ou Crâne en Or gratuit) : +2PV +1Nourriture.<br>Option : lancez dé de réussite (succès +Fleur au choix / échec -1XP).'},
   {id:'reine_squelette',nom:'Reine Squelette',icon:'💀',type:'boss',zone:'Catacombes',dispo:false,
    detail:'<b>Pack — Boss</b> — Zone 1 : 14PV, -3 + Aveuglement. Zone 2 : -4 + Maudit. Zones 3-5 : outre armure. Récompense : +2XP + Trésor.'},
+
+  // ══ CITADELLE — DISPO ══
+  {id:'araignee_geante',nom:'Araignée Géante',icon:'🕷',type:'monstre',zone:'Citadelle',dispo:true,
+   detail:'<b>Monstre</b> — Poison à chaque attaque. Zones 4-5 : +Anti-Poison en récompense. Zone 4 : 30PV, -4.'},
+  {id:'protecteur_roi',nom:'Protecteur du Roi',icon:'⚔',type:'monstre',zone:'Citadelle',dispo:true,
+   detail:'<b>Monstre</b> — Outre armure + Étourdissement. Récompense : +XP +1 Armure. Zone 4 : 35PV, -2.'},
+  {id:'loup_enrage',nom:'Loup Enragé',icon:'🐺',type:'monstre',zone:'Citadelle',dispo:true,
+   detail:'<b>Monstre</b> — Saignement. Récompense : Nourriture + Or + XP. Zone 4 : 20PV, -3.'},
+  {id:'dalles',nom:'Dalles',icon:'🟫',type:'piege',zone:'Citadelle',dispo:true,
+   detail:'<b>Piège</b> — Dé 1-2 : réussite +1XP / échec -1 Armure.<br>Dé 3-4 : réussite +1XP / échec -2PV+Aveuglement.<br>Dé 5-6 : réussite +2XP / échec Aveuglement.'},
+  {id:'haches',nom:'Haches',icon:'🪓',type:'piege',zone:'Citadelle',dispo:true,
+   detail:'<b>Piège</b> — Dé 1/6 : réussite +2Or / échec -2PV outre armure.<br>Dé 2/5 : échec -2PV outre + Saignement.<br>Dé 3-4 : réussite +3XP / échec -1PV + Saignement.'},
+  {id:'herse',nom:'Herse',icon:'🚧',type:'piege',zone:'Citadelle',dispo:true,
+   detail:'<b>Piège</b> — Dé < 4 : réussite rien / échec -1PV outre + Saignement.<br>Dé ≥ 4 : réussite +1XP / échec -1PV.'},
+  {id:'belier',nom:'Bélier',icon:'🐏',type:'piege',zone:'Citadelle',dispo:true,
+   detail:'<b>Piège</b> — Dé 1-3 : réussite +2XP / échec -3PV.<br>Dé 4-6 : réussite +1XP / échec -1 Armure.'},
+  {id:'piege_temporel',nom:'Piège Temporel',icon:'⏳',type:'piege',zone:'Citadelle',dispo:true,
+   detail:'<b>Piège</b> — Dé donjon vs vos dés. Victoire : compteur +1. Égalité : compteur -1. Défaite : -X PV (X = compteur) et reset. Le compteur persiste entre les parties.'},
+  {id:'cachette',nom:'Cachette',icon:'🕳',type:'repos',zone:'Citadelle',dispo:true,
+   detail:'<b>Repos</b> — Choisissez : +1 PV ou +1 Nourriture.'},
+  {id:'forge_abandonnee',nom:'Forge Abandonnée',icon:'⚒',type:'repos',zone:'Citadelle',dispo:true,
+   detail:'<b>Repos</b> — Échanges : -5 Or → +1 Armure / Rafraîchir compétence (gratuit).'},
+  {id:'tresor_cita',nom:'Trésor',icon:'💰',type:'tresor',zone:'Citadelle',dispo:true,
+   detail:'<b>Trésor</b> — 1:+2Or / 2:Potion Soin ou Anti-Poison / 3:Armure ou Nourriture / 4:Émeraude ou 3Or / 5:2Or ou Pomme Dorée / 6:Pomme Dorée ou Fleur Force.'},
+  {id:'amitie',nom:"L'Amitié",icon:'🤝',type:'tresor',zone:'Citadelle',dispo:true,
+   detail:'<b>Trésor</b> — Si vous avez rencontré le Stand de Nourriture, le Poisson ET le Squelette Sympa : +2💎 +5XP. Sinon : +1XP.'},
+  {id:'marchand_cita',nom:'Marchand',icon:'🧙',type:'commerce',zone:'Citadelle',dispo:true,
+   detail:'<b>Commerce</b> — Achats : 3Or=+1Nourriture, 4Or=+1Armure, 2Or=+Pomme Dorée.<br>Ventes : Potion=2Or, Armure=1Or+1💎.'},
+  {id:'marchand_vereux',nom:'Marchand Véreux',icon:'🤑',type:'commerce',zone:'Citadelle',dispo:true,
+   detail:'<b>Commerce</b> — Achats : 5Or=+1Nourriture, 3Or=+Fleur au choix.<br>Ventes : Nourriture=1Or, Émeraude=1Or.'},
+  {id:'rencontre_paladin',nom:'Rencontre Paladin',icon:'⚜',type:'evenement',zone:'Citadelle',dispo:true,
+   detail:'<b>Contre</b> — Première rencontre : débloque le Paladin (jouable pour 20💎). Si vous jouez le Paladin : rafraîchissement compétences.'},
+  {id:'reparation_patrimoine',nom:'Réparation du Patrimoine',icon:'🏛',type:'evenement',zone:'Citadelle',dispo:true,
+   detail:'<b>Contre</b> — Choisissez : -3PV outre armure → +7XP, ou -10 Or → +4XP.'},
+  {id:'rempart',nom:'Rempart',icon:'🏰',type:'lieu',zone:'Citadelle',dispo:true,
+   detail:'<b>Lieu</b> — Si armure ≥ 2 : combat contre Arbalétrier. Sinon : +1 Armure.'},
+  {id:'salle_arsenal',nom:"Salle d'Arsenal",icon:'⚔',type:'lieu',zone:'Citadelle',dispo:true,
+   detail:'<b>Lieu</b> — 1:-2PV / 2:-1PV / 3:Saignement / 4:+3Or+1⚡ / 5:+1Armure / 6:+2⚡.'},
+  {id:'jardin',nom:'Jardin',icon:'🌸',type:'lieu',zone:'Citadelle',dispo:true,
+   detail:'<b>Lieu</b> — Dé 1-2 : Fleur Force. Dé 3-4 : Fleur Défense. Dé 5-6 : Fleur Esquive.'},
+  {id:'salle_bal',nom:'Salle du Bal',icon:'💃',type:'lieu',zone:'Citadelle',dispo:true,
+   detail:'<b>Lieu</b> — Dé 1-3 : -2 XP. Dé 4-6 : +2 XP.'},
+  {id:'salle_repas',nom:'Salle du Repas',icon:'🍽',type:'lieu',zone:'Citadelle',dispo:true,
+   detail:'<b>Lieu Chance</b> — 1:-1Nourr / 2:+1Nourr / 3:+Pomme Dorée / 4:+Potion Soin / 5:+2Nourr / 6:+1Nourr+Empoisonné.'},
+  {id:'sanctuaire_cita',nom:'Sanctuaire',icon:'🕯',type:'lieu',zone:'Citadelle',dispo:true,
+   detail:'<b>Lieu Chance</b> — Dé 1-4 : -2XP + Maudit. Dé 5-6 : +3 XP.'},
+  {id:'laboratoire',nom:'Laboratoire',icon:'⚗',type:'lieu',zone:'Citadelle',dispo:true,
+   detail:'<b>Lieu Chance</b> — Dé de réussite. Z4:Aveuglement/+Perception. Z5:Empoisonné/+Anti-Poison. Z6:Saignement/+Eau Bénite.'},
+  // ══ CITADELLE — PACK ══
+  {id:'arbaletrier',nom:'Arbalétrier',icon:'🏹',type:'monstre',zone:'Citadelle',dispo:false,
+   detail:'<b>Pack — Monstre</b> — Étourdissement. -6 PV fixe. Récompense : Potion Chance +3XP.'},
+  {id:'bras_droit',nom:'Bras Droit',icon:'🦾',type:'monstre',zone:'Citadelle',dispo:false,
+   detail:'<b>Pack — Monstre</b> — Outre armure + Maudit + Étourdissement. Zone 5+ : Poison. Récompense : Eau Bénite + Trésor.'},
+  {id:'fosse_loups',nom:'Fosse aux Loups',icon:'🐺',type:'piege',zone:'Citadelle',dispo:false,
+   detail:'<b>Pack — Piège</b> — Dé 1/5 : combat 1 Loup. Dé 2/3 : combat 2 Loups +2XP. Dé 4/6 : +1PV.'},
+  {id:'prison',nom:'Prison',icon:'⛓',type:'piege',zone:'Citadelle',dispo:false,
+   detail:'<b>Pack — Piège</b> — Dé de réussite. Échec : dégâts selon zone + recommence la carte.'},
+  {id:'feu_camp_cita',nom:'Feu de Camp',icon:'🔥',type:'repos',zone:'Citadelle',dispo:false,
+   detail:'<b>Pack — Repos</b> — Choisissez : +2PV / +1Nourriture / +Anti-Poison.'},
+  {id:'tresor_piege',nom:'Trésor Piégé',icon:'💣',type:'tresor',zone:'Citadelle',dispo:false,
+   detail:'<b>Pack — Trésor</b> — Dé 1-4 : -2PV + Aveuglement. Dé 5-6 : +3 Or.'},
+  {id:'pharmacie',nom:'Pharmacie',icon:'💊',type:'commerce',zone:'Citadelle',dispo:false,
+   detail:'<b>Pack — Commerce</b> — Achats : 3Or=+Eau Bénite, 2Or=+Potion Soin, 2Or=+Anti-Poison.'},
+  {id:'voyant',nom:'Voyant',icon:'🔮',type:'evenement',zone:'Citadelle',dispo:false,
+   detail:'<b>Pack — Contre</b> — Payez XP+Or pour recevoir un bonus de départ à la prochaine partie.<br>-6XP-2Or → +3XP départ. -12XP-4Or → +6XP départ.'},
+  {id:'chambre_temporelle',nom:'Chambre Temporelle',icon:'⏱',type:'lieu',zone:'Citadelle',dispo:false,
+   detail:'<b>Pack — Lieu</b> — Dé 1 : récupère compteur PV. Dé 2 : récupère compteur Or. Dé 3-4 : compteur PV méta +1. Dé 5-6 : compteur Or méta +1.'},
+  {id:'fontaine_cita',nom:'Fontaine',icon:'⛲',type:'lieu',zone:'Citadelle',dispo:false,
+   detail:'<b>Pack — Lieu Chance</b> — Dé donjon vs vous. Défaite : Empoisonné. Égalité : +1💎 + Eau Bénite. Victoire : +Eau Bénite.'},
+  {id:'passage_secret_cita',nom:'Passage Secret',icon:'🗝',type:'lieu',zone:'Citadelle',dispo:false,
+   detail:'<b>Pack — Lieu Chance</b> — Pioche une Carte Histoire.'},
+  // ══ CITADELLE — BOSS ══
+  {id:'liche',nom:'La Liche',icon:'💀',type:'boss',zone:'Citadelle',dispo:true,
+   detail:'<b>Boss Final — 2 Phases</b><br>Phase 1 : 50PV, -5 + Maudit.<br>Phase 2 : 30PV, -3 outre armure + Étourdissement.<br>Récompense : 5 Émeraudes + Trésor (Zone 4).'},
 
   // ══ OBJETS ══
   {id:'potion_soin',nom:'Potion de Soin',icon:'🧪',type:'item',zone:'Objets',dispo:true,
@@ -4305,8 +4958,8 @@ function animDieEtourdi(elId){
   });
 }
 
-function etageMaxZone(zi){return zi===0?2:zi===1?3:3;}
-function nomZone(zi){return zi===0?'Égouts':zi===1?'Catacombes':'Donjon';}
+function etageMaxZone(zi){return zi===0?2:zi===1?3:zi===2?3:3;}
+function nomZone(zi){return zi===0?'Égouts':zi===1?'Catacombes':zi===2?'Donjon':'Citadelle';}
 function rndPoison(){const f=['💧','💧','💧','💧','○','○'];return f[Math.floor(Math.random()*6)]==='💧';}
 
 // Anime un dé poison/malédiction et retourne une promesse avec le résultat
@@ -4346,7 +4999,7 @@ function infligerDmg(j, dmg, outre=false){
 function rnd(n){return Math.floor(Math.random()*n)+1;}
 // Retourne l'index sûr dans sc[] pour une carte (évite undefined si sc plus court)
 function scIdx(c){return Math.min(gs.scIndex, (c.sc?.length||1)-1);}
-function findCarte(id){return CARTES.find(x=>x.id===id)||CARTES_CATACOMBES.find(x=>x.id===id)||CARTES_DONJON.find(x=>x.id===id)||BOSS.find(x=>x.id===id)||null;}
+function findCarte(id){return CARTES.find(x=>x.id===id)||CARTES_CATACOMBES.find(x=>x.id===id)||CARTES_DONJON.find(x=>x.id===id)||CARTES_CITADELLE.find(x=>x.id===id)||BOSS.find(x=>x.id===id)||null;}
 function nomItem(id){const m={eau_benite:'Eau Bénite',perception:'Perception',antipoison:'Anti-Poison',potion_soin:'Potion Soin',potion_feu:'Potion Feu',potion_glace:'Potion Glace',potion_poison:'Potion Poison',potion_chance:'Potion Chance',pomme_doree:'Pomme Dorée',fleur_force:'Fleur Force',fleur_defense:'Fleur Défense',fleur_esquive:'Fleur Esquive'};return m[id]||id;}
 function upEl(id,v){const e=document.getElementById(id);if(e)e.textContent=v;}
 function upEl2(id,v){const e=document.getElementById(id);if(e)e.style.cssText=v;}
