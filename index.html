@@ -1373,9 +1373,10 @@ function coopJoueurMort(idx){
 }
 
 function coopLancerCombatSolo(){
-  // J1 combat seul, PV normaux
+  // J1 combat seul — forcer tourJoueur=0
   gs._combatCoop=false;
   gs._monstreAttente=null;
+  gs.tourJoueur=0;
   openPanel(buildPanel(gs.grille[gs.active]));
 }
 function coopAttendrePartenaire(){
@@ -1581,14 +1582,11 @@ function goTo(i){
       gs._combatCoop=true;gs._coopTourCombat=0;gs._monstreAttente=null;
       setTimeout(()=>{gs.active=monIdx;openPanel(buildPanel(gs.grille[monIdx]));},200);
     } else {
-      // J2 va ailleurs → J1 combat seul (bloquer J2 sur cette case, pas d'ouverture de carte)
+      // J2 va ailleurs → J1 combat seul
       gs._monstreAttente=null;gs._combatCoop=false;
-      logMsg('J2 part ailleurs — J1 combat seul !','bad');
-      // Lancer le combat solo pour J1 sans changer de tour
-      const savedTour=gs.tourJoueur;
       gs.tourJoueur=0; // forcer J1 pour le combat
+      logMsg('J2 part ailleurs — J1 combat seul !','bad');
       setTimeout(()=>{gs.active=monIdx;openPanel(buildPanel(gs.grille[monIdx]));},200);
-      gs.tourJoueur=savedTour; // remettre le tour J2 après
     }
     return; // ne pas ouvrir la carte sur laquelle J2 s'est déplacé
   } else {
@@ -1852,11 +1850,20 @@ function bCombat(c,ei,isFantome){
 
 function attaquer(skipJoueur=false){
   const ci=gs.active;const c=gs.grille[ci];
-  const ei=scIdx(c);const s=c.sc[ei];
-  // En combat solo (pas combatCoop), toujours J1
-  const j=gs.coop&&gs._combatCoop?gs.j:gs.joueurs?gs.joueurs[0]:gs.j;
+  const ei=scIdx(c);const s=c.sc[ei];const j=gs.j;
   const bAtk=document.getElementById('batk');if(bAtk) bAtk.disabled=true;
   const bEc=document.getElementById('btn-ec');if(bEc) bEc.disabled=true;
+
+  // Filet de sécurité — réactive batk après 4s si la promesse plante
+  const safetyTimer=setTimeout(()=>{
+    const b=document.getElementById('batk');
+    if(b&&b.disabled){
+      console.warn('Safety re-enable batk');
+      const toolsEl=document.getElementById('combat-tools');
+      if(toolsEl) buildCombatTools();
+      b.disabled=false;
+    }
+  },4000);
 
   // Si glacé ou étourdi : passer l'attaque joueur
   if(skipJoueur||j._glaceTour){
@@ -1879,7 +1886,11 @@ function attaquer(skipJoueur=false){
       }
       updateHpDisplay(j);
       renderSheet();if(j.pv<=0){closePanel();finPartie(false);}
-      else{setTimeout(()=>{const b=document.getElementById('batk');if(b)b.disabled=false;},300);}
+      else{setTimeout(()=>{
+        const toolsEl=document.getElementById('combat-tools');
+        if(toolsEl) buildCombatTools();
+        const b=document.getElementById('batk');if(b)b.disabled=false;
+      },300);}
     });
     return;
   }
@@ -2158,10 +2169,14 @@ function attaquer(skipJoueur=false){
         if(j._skipTour){
           const cl=document.getElementById('clog');if(cl){const sp=document.createElement('span');sp.innerHTML=`<br><span style="color:#9090ff">💫 Tour passé (étourdi) !</span>`;cl.appendChild(sp);}
           j._skipTour=false;
-          setTimeout(()=>attaquer(gs.active,true),600); // attaquer avec skipJ=true
+          setTimeout(()=>attaquer(gs.active,true),600);
           return;
         }
+        // Reconstruire les outils d'abord, puis activer le bouton
+        const toolsEl=document.getElementById('combat-tools');
+        if(toolsEl) buildCombatTools();
         const b=document.getElementById('batk');if(b)b.disabled=false;
+        clearTimeout(safetyTimer);
         const cbtns=document.getElementById('cbtns');
         if(cbtns&&j.eclair>0&&!document.getElementById('btn-ec')){
           cbtns.innerHTML+=`<button class="btn-a eclair" id="btn-ec" onclick="eclairCombat()">⚡ Relancer (${j.eclair})</button>`;
@@ -2169,12 +2184,15 @@ function attaquer(skipJoueur=false){
           document.getElementById('btn-ec').disabled=false;
           document.getElementById('btn-ec').textContent=`⚡ Relancer (${j.eclair})`;
         }
-        // Reconstruire les outils de combat (fleurs consommées, etc.)
-        const toolsEl=document.getElementById('combat-tools');
-        if(toolsEl) buildCombatTools();
       },300);
       }); // fin etourdProm.then
     });
+  }).catch(err=>{
+    console.error('Combat error:',err);
+    // Toujours réactiver le bouton en cas d'erreur
+    const toolsEl=document.getElementById('combat-tools');
+    if(toolsEl) buildCombatTools();
+    const b=document.getElementById('batk');if(b)b.disabled=false;
   }); // fermeture .then(() => { ... tour ennemi
 }
 
@@ -2250,7 +2268,7 @@ function finCombat(ci){
   if(s.recompFleur){apply({item:'fleur_'+s.recompFleur},j,m=>{g+=m+' ';});}
   joueurs.forEach(jj=>lvlCheckJ(jj));
   gs._combatCoop=false;
-  // Afficher les récompenses dans le log de combat
+  gs._resultAffiché=true;
   const clogEl2=document.getElementById('clog');
   if(clogEl2&&g){
     const sp=document.createElement('span');
@@ -2385,7 +2403,7 @@ function useFleur(type){
 }
 
 function buildCombatTools(){
-  const j=gs.coop&&gs._combatCoop?gs.j:gs.joueurs?gs.joueurs[0]:gs.j;
+  const j=gs.j;
   const ci=gs.active;if(!j||ci===null)return;
   const c=gs.grille[ci];if(!c)return;
   const cls=Object.keys(CLASSES).find(k=>CLASSES[k].name===j.name);
@@ -3538,12 +3556,11 @@ function apply(e,j,cb){
 }
 function updateHpDisplay(j){
   if(gs.coop&&gs.joueurs){
-    // En coop, mettre à jour la fiche complète du bon joueur
     const idx=gs.joueurs.indexOf(j);
     if(idx>=0) renderSheetJoueur(j,idx);
   } else {
-    updateHpDisplay(j);
-
+    upEl2('jhp',`width:${Math.max(0,j.pv/j.pvMax*100)}%`);
+    upEl('jpv',j.pvOr>0?`${j.pv}/${j.pvMax}+${j.pvOr}🍎`:`${j.pv}/${j.pvMax}`);
   }
 }
 
