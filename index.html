@@ -211,7 +211,7 @@
   .froid-bar{display:flex;gap:2px;align-items:center;margin:.2em 0;}
   .froid-pip{width:10px;height:10px;border-radius:2px;border:1px solid #1a4a6a;background:#0a1a2a;}
   .froid-pip.fill{background:#50aadd;border-color:#50aadd;}
-  .clog{background:var(--bg-deep);border:1px solid var(--border);padding:.5em .7em;margin-top:.4em;font-size:.82rem;line-height:1.65;min-height:2em;}
+  .clog{background:var(--bg-deep);border:1px solid var(--border);padding:.5em .7em;margin-top:.4em;font-size:.82rem;line-height:1.65;min-height:2em;max-height:140px;overflow-y:auto;}
   .tbad2{color:var(--red-light);}.tgood2{color:#7dcc5a;}.tinfo{color:var(--text-dim);font-style:italic;}
   .combat-tools{background:var(--bg-card);border:1px solid var(--border);padding:.45em;margin:.38em 0;}
   .combat-tools-title{font-family:'Cinzel',serif;font-size:.6rem;color:var(--gold-dim);letter-spacing:.08em;text-transform:uppercase;margin-bottom:.3em;}
@@ -1316,6 +1316,16 @@ function startGame(){
 /* ══ COOP HELPERS ══ */
 function coopFinTour(){
   if(!gs.coop)return;
+  if(gs._combatCoop) return;
+
+  // Après un combat, J1 garde le tour (le combat compte comme son action)
+  if(gs._apresComabat){
+    gs._apresComabat=false;
+    gs.locked=false;
+    renderGame();
+    return;
+  }
+
   const curPos=gs.pos[gs.tourJoueur];
   const carte=gs.grille[curPos];
   if(carte&&carte.type==='descente'){
@@ -1325,15 +1335,18 @@ function coopFinTour(){
   if(gs.pret[0]&&(gs.joueurs.length<2||gs.pret[1])){
     gs.pret=[false,false];descendre();return;
   }
+
+  // Basculer le tour
   if(gs.joueurs.length>1){
     gs.tourJoueur=gs.tourJoueur===0?1:0;
     logMsg(`Tour de ${gs.tourJoueur===0?'J1 🔵':'J2 🔴'} !`,'good');
   }
   gs.locked=false;
   renderGame();
-  // Ouvrir la case 0 pour J2 seulement si J2 ne l'a pas encore jouée
+
+  // Ouvrir la case 0 pour le joueur actif si pas encore jouée
   const posActuel=gs.pos[gs.tourJoueur];
-  if(posActuel===0&&!gs._case0Joue[gs.tourJoueur]){
+  if(posActuel===0&&gs._case0Joue&&!gs._case0Joue[gs.tourJoueur]){
     gs._case0Joue[gs.tourJoueur]=true;
     gs.locked=true;
     setTimeout(()=>openCard(0),300);
@@ -1578,8 +1591,9 @@ function goTo(i){
   if(gs.coop&&gs._monstreAttente!==undefined&&gs._monstreAttente!==null){
     const monIdx=gs._monstreAttente;
     if(i===monIdx){
-      // J2 rejoint le monstre → combat coop
+      // J2 rejoint le monstre → combat coop, J1 attaque en premier
       gs._combatCoop=true;gs._coopTourCombat=0;gs._monstreAttente=null;
+      gs.tourJoueur=0;
       setTimeout(()=>{gs.active=monIdx;openPanel(buildPanel(gs.grille[monIdx]));},200);
     } else {
       // J2 va ailleurs → J1 combat seul
@@ -1615,9 +1629,8 @@ function closePanel(){
     gs.active=null;gs.locked=false;
   } else {
     document.getElementById('game-right').classList.remove('open');
-    const wasPlayed=gs._resultAffiché;
     gs.active=null;gs.locked=false;gs._resultAffiché=false;
-    if(gs.coop&&wasPlayed){coopFinTour();}else{renderGame();}
+    if(gs.coop){coopFinTour();}else{renderGame();}
   }
 }
 
@@ -1648,9 +1661,10 @@ function openCard(i){
     const autreIdx=gs.tourJoueur===0?1:0;
     const autrePos=gs.pos[autreIdx];
     if(autrePos===i){
-      // J2 est déjà sur la case → combat coop direct
+      // Les 2 sont sur la case → combat coop, J1 attaque en premier
       gs._combatCoop=true;
       gs._coopTourCombat=0;
+      gs.tourJoueur=0; // toujours commencer avec J1
     } else {
       // J1 vient d'arriver → proposer à J2 de rejoindre avant le combat
       gs._combatCoop=false;
@@ -1769,7 +1783,9 @@ function upEpv(c){
 function bCombat(c,ei,isFantome){
   const isCoop=gs.coop&&gs._combatCoop&&gs.joueurs&&gs.joueurs.length>1;
   if(c.pvActuel===null||c.pvActuel===undefined) c.pvActuel=isCoop?(c.sc[ei].pvCoop||c.sc[ei].pv):c.sc[ei].pv;
-  const s=c.sc[ei];const j=gs.j;
+  const s=c.sc[ei];
+  // En combat, J1 = joueurs[0] toujours (tourJoueur géré séparément)
+  const j=isCoop?gs.joueurs[0]:gs.j;
   const pvMax=c.isLiche&&c._phase2?s.pv2:isCoop?(s.pvCoop||s.pv):s.pv;
   const ep=Math.max(0,c.pvActuel/pvMax*100),jp=Math.max(0,j.pv/j.pvMax*100);
   const cls=Object.keys(CLASSES).find(k=>CLASSES[k].name===j.name);
@@ -1788,7 +1804,7 @@ function bCombat(c,ei,isFantome){
   const toolsSec=tools?`<div class="combat-tools" id="combat-tools"><div class="combat-tools-title">Outils de combat</div><div class="tools-row">${tools}</div></div>`:'';
   let diceJ='';for(let i=0;i<j.des;i++) diceJ+=`<div class="die pending" id="dj${i}">?</div>`;
   // En coop : afficher les 2 barres de vie joueurs
-  const coopJ2=isCoop?gs.joueurs[gs.tourJoueur===0?1:0]:null;
+  const coopJ2=isCoop?gs.joueurs[1]:null;
   const j2Block=coopJ2?`
   <div class="msec" style="border-color:#ef4a4a33">
     <div class="msec-title" style="color:#ef4a4a">J2 — ${coopJ2.name}</div>
@@ -1850,7 +1866,10 @@ function bCombat(c,ei,isFantome){
 
 function attaquer(skipJoueur=false){
   const ci=gs.active;const c=gs.grille[ci];
-  const ei=scIdx(c);const s=c.sc[ei];const j=gs.j;
+  const ei=scIdx(c);const s=c.sc[ei];
+  // En combat coop, le joueur actif est déterminé par _coopTourCombat (0=J1, 1=J2)
+  // En solo, c'est gs.j normalement
+  const j=gs.coop&&gs._combatCoop&&gs.joueurs?gs.joueurs[gs._coopTourCombat||0]:gs.j;
   const bAtk=document.getElementById('batk');if(bAtk) bAtk.disabled=true;
   const bEc=document.getElementById('btn-ec');if(bEc) bEc.disabled=true;
 
@@ -1882,7 +1901,7 @@ function attaquer(skipJoueur=false){
         let dmg=s2.atk;if(!s2.outre){dmg=Math.max(0,dmg-j.armure);}
         infligerDmg(j,dmg,s2.outre||ve===7);
         const actualDmg=dmg;
-        const cl=document.getElementById('clog');if(cl){const sp=document.createElement('span');sp.innerHTML=`<span class="tbad">Ennemi attaque — -${actualDmg} PV${ve===7?' (★ Critique !)':''}</span><br>`;cl.appendChild(sp);}
+        const cl=document.getElementById('clog');if(cl){const sp=document.createElement('span');sp.innerHTML=`<span class="tbad">Ennemi attaque — -${actualDmg} PV${ve===7?' (★ Critique !)':''}</span><br>`;cl.appendChild(sp);cl.scrollTop=cl.scrollHeight;}
       }
       updateHpDisplay(j);
       renderSheet();if(j.pv<=0){closePanel();finPartie(false);}
@@ -1973,7 +1992,7 @@ function attaquer(skipJoueur=false){
     let log=`<span class="tgood2">Vous infligez <strong>${atk}</strong> dégâts${bonusAtk?' (+Fleur)':''}.${skipE?' 🌸 Ennemi esquivé':''}</span><br>`;
     // ═══ Si ennemi mort → victoire ou phase 2 ═══
     if(c.pvActuel<=0){
-      document.getElementById('clog').innerHTML=log;
+      clogSet(log);
       if(!checkEnnemiMort(ci)){
         // Phase 2 Liche — mettre à jour l'affichage et continuer
         const pvMax2=c.sc[scIdx(c)].pv2||30;
@@ -1988,7 +2007,7 @@ function attaquer(skipJoueur=false){
     if(c._glace){
       c._glace=false;
       const clogEl2=document.getElementById('clog');
-      if(clogEl2) clogEl2.innerHTML=log+`<span class="tinfo">❄ L'ennemi est gelé et passe son tour !</span>`;
+      if(clogEl2){clogEl2.innerHTML=log+`<span class="tinfo">❄ L'ennemi est gelé et passe son tour !</span>`;clogEl2.scrollTop=clogEl2.scrollHeight;}
       // Marquer que l'ennemi est gelé pour bloquer le .then() suivant
       c._glaceTurn=true;
       renderSheet();
@@ -2043,7 +2062,7 @@ function attaquer(skipJoueur=false){
       }
     }
     updateHpDisplay(j);
-    const clogEl=document.getElementById('clog');if(clogEl)clogEl.innerHTML=log;
+    clogSet(log);
 
     // Brûlure ennemi : -1 PV ce tour (différé après animation)
     if(c._brulee){
@@ -2053,7 +2072,7 @@ function attaquer(skipJoueur=false){
       upEpv(c);
       upEl2('ehp',`width:${Math.max(0,c.pvActuel/s2b.pv*100)}%`);
       const cl=document.getElementById('clog');
-      if(cl){const sp=document.createElement('span');sp.innerHTML=`<br><span style="color:#e87020">🔥 Brûlure — ennemi -1 PV !</span>`;cl.appendChild(sp);}
+      if(cl){const sp=document.createElement('span');sp.innerHTML=`<br><span style="color:#e87020">🔥 Brûlure — ennemi -1 PV !</span>`;cl.appendChild(sp);cl.scrollTop=cl.scrollHeight;}
       if(c.pvActuel<=0){finCombat(ci);return;}
     }
 
@@ -2160,15 +2179,17 @@ function attaquer(skipJoueur=false){
         gs.tourJoueur=gs._coopTourCombat;
         const actif=gs._coopTourCombat;
         const cl=document.getElementById('clog');
-        if(cl){const sp=document.createElement('span');sp.innerHTML=`<br><span style="color:${actif===0?'#4a9aef':'#ef4a4a'}">— Tour de ${actif===0?'J1 🔵':'J2 🔴'}</span><br>`;cl.appendChild(sp);}
+        if(cl){const sp=document.createElement('span');sp.innerHTML=`<br><span style="color:${actif===0?'#4a9aef':'#ef4a4a'}">— Tour de ${actif===0?'J1 🔵':'J2 🔴'}</span><br>`;cl.appendChild(sp);cl.scrollTop=cl.scrollHeight;}
         const j2=gs.joueurs[actif];let diceJ2='';for(let i=0;i<j2.des;i++) diceJ2+=`<div class="die pending" id="dj${i}">?</div>`;
         const djZ=document.getElementById('dj-zone');if(djZ) djZ.innerHTML=diceJ2;
       }
       setTimeout(()=>{
+        // Relire gs.j car le joueur actif peut avoir changé (coop)
+        const jNow=gs.j;
         // Si étourdi : passer le tour automatiquement
-        if(j._skipTour){
-          const cl=document.getElementById('clog');if(cl){const sp=document.createElement('span');sp.innerHTML=`<br><span style="color:#9090ff">💫 Tour passé (étourdi) !</span>`;cl.appendChild(sp);}
-          j._skipTour=false;
+        if(jNow._skipTour){
+          const cl=document.getElementById('clog');if(cl){const sp=document.createElement('span');sp.innerHTML=`<br><span style="color:#9090ff">💫 Tour passé (étourdi) !</span>`;cl.appendChild(sp);cl.scrollTop=cl.scrollHeight;}
+          jNow._skipTour=false;
           setTimeout(()=>attaquer(gs.active,true),600);
           return;
         }
@@ -2178,11 +2199,11 @@ function attaquer(skipJoueur=false){
         const b=document.getElementById('batk');if(b)b.disabled=false;
         clearTimeout(safetyTimer);
         const cbtns=document.getElementById('cbtns');
-        if(cbtns&&j.eclair>0&&!document.getElementById('btn-ec')){
-          cbtns.innerHTML+=`<button class="btn-a eclair" id="btn-ec" onclick="eclairCombat()">⚡ Relancer (${j.eclair})</button>`;
+        if(cbtns&&jNow.eclair>0&&!document.getElementById('btn-ec')){
+          cbtns.innerHTML+=`<button class="btn-a eclair" id="btn-ec" onclick="eclairCombat()">⚡ Relancer (${jNow.eclair})</button>`;
         } else if(document.getElementById('btn-ec')){
           document.getElementById('btn-ec').disabled=false;
-          document.getElementById('btn-ec').textContent=`⚡ Relancer (${j.eclair})`;
+          document.getElementById('btn-ec').textContent=`⚡ Relancer (${jNow.eclair})`;
         }
       },300);
       }); // fin etourdProm.then
@@ -2241,7 +2262,9 @@ function eclairCombat(){
 }
 
 function finCombat(ci){
-  const c=gs.grille[ci];const ei=scIdx(c);const s=c.sc[ei];const j=gs.j;
+  const c=gs.grille[ci];const ei=scIdx(c);const s=c.sc[ei];
+  // Le joueur qui a porté le dernier coup = actif en coop, sinon gs.j
+  const j=gs.coop&&gs.joueurs?gs.joueurs[gs._coopTourCombat||0]:gs.j;
 
   // Si c'est un fantôme, nettoyer et retourner à la carte originale
   if(c.id==='fantome'){
@@ -2258,36 +2281,91 @@ function finCombat(ci){
   }
 
   let g='';
-  // En coop : distribuer XP aux 2, or/nourriture au joueur actif
-  const joueurs=gs.coop&&gs.joueurs?gs.joueurs:[j];
-  if(s.xp){joueurs.forEach(jj=>{jj.xp+=s.xp;});g+=`+${s.xp} XP `;}
-  if(s.or){j.or+=s.or;g+=`+${s.or} Or `;}
-  if(s.nourriture){j.nourriture=Math.min(j.nMax,j.nourriture+s.nourriture);g+=`+${s.nourriture} Nourr. `;}
-  if(s.emmeraude){joueurs.forEach(jj=>{jj.emmeraude=(jj.emmeraude||0)+Math.ceil(s.emmeraude/joueurs.length);});g+=`+${s.emmeraude} 💎 `;}
-  if(s.potion){if(!j.inventaire.some(x=>x.id==='potion_'+s.potion)){j.inventaire.push({id:'potion_'+s.potion,nom:nomItem('potion_'+s.potion)});g+=`+Potion ${s.potion} `;}}
-  if(s.recompFleur){apply({item:'fleur_'+s.recompFleur},j,m=>{g+=m+' ';});}
-  joueurs.forEach(jj=>lvlCheckJ(jj));
+  const isCombatCoop=gs.coop&&gs.joueurs&&gs.joueurs.length>1&&gs._combatCoop;
+  const combattant=j; // le joueur qui a combattu
+  const tousJoueurs=isCombatCoop?gs.joueurs:[j];
+
+  // XP : tout le monde si combat coop, sinon juste le combattant
+  if(s.xp){tousJoueurs.forEach(jj=>{jj.xp+=s.xp;});g+=`+${s.xp} XP `;}
+  if(s.emmeraude){tousJoueurs.forEach(jj=>{jj.emmeraude=(jj.emmeraude||0)+Math.ceil(s.emmeraude/tousJoueurs.length);});g+=`+${s.emmeraude} 💎 `;}
+  tousJoueurs.forEach(jj=>lvlCheckJ(jj));
+
   gs._combatCoop=false;
+  gs._coopTourCombat=0;
+  if(isCombatCoop){
+    gs.tourJoueur=0;
+    gs._apresComabat=true; // combat coop : J1 garde le tour
+  } else {
+    gs._apresComabat=false; // combat solo : fin de tour normale
+  }
   gs._resultAffiché=true;
+
   const clogEl2=document.getElementById('clog');
   if(clogEl2&&g){
     const sp=document.createElement('span');
     sp.innerHTML=`<br><span class="tgood" style="font-family:'Cinzel',serif">⚔ Victoire ! <strong>${g.trim()}</strong></span><br>`;
-    clogEl2.appendChild(sp);
+    clogEl2.appendChild(sp);clogEl2.scrollTop=clogEl2.scrollHeight;
   }
 
-  // Trésor de victoire si applicable — avec animation dé
+  const recompIndiv={or:s.or||0,nourriture:s.nourriture||0,potion:s.potion||null,fleur:s.recompFleur||null,tresor:s.tresor||false};
+  const hasRecomp=recompIndiv.or||recompIndiv.nourriture||recompIndiv.potion||recompIndiv.fleur||recompIndiv.tresor;
   const isBoss=c.type==='boss';
-  if(s.tresor){
-    const cbtns2=document.getElementById('cbtns');
-    if(cbtns2) cbtns2.innerHTML=`<button class="btn-a ok" onclick="lancerTresorVictoire(${ci},${isBoss})">💰 Lancer dé trésor</button>`;
-  } else if(!c.isMimic&&!c.isMonstre){
-    const cbtns2=document.getElementById('cbtns');
-    if(isBoss) cbtns2.innerHTML=`<button class="btn-a ok" onclick="closePanel();changerZone()">⬇ Zone suivante</button>`;
-    else if(cbtns2) cbtns2.innerHTML=`<button class="btn-a ok" onclick="closePanel()">Continuer</button>`;
+  const cbtns2=document.getElementById('cbtns');
+
+  if(isCombatCoop&&hasRecomp){
+    // Combat coop : chaque joueur réclame
+    gs._recompIndiv=recompIndiv;
+    gs._recompJoueurIdx=0;
+    if(cbtns2) cbtns2.innerHTML=`<button class="btn-a ok" onclick="recompCoopClaimer(${ci},${isBoss})">💰 J1 réclame le butin</button>`;
   } else {
-    const cbtns2=document.getElementById('cbtns');
-    if(cbtns2) cbtns2.innerHTML=`<button class="btn-a ok" onclick="mimicLancerDe(${ci})">🎲 Lancer dé butin</button>`;
+    // Combat solo (ou coop sans récompenses) : tout au combattant
+    if(s.or){combattant.or+=s.or;}
+    if(s.nourriture){combattant.nourriture=Math.min(combattant.nMax,combattant.nourriture+s.nourriture);}
+    if(s.potion&&!combattant.inventaire.some(x=>x.id==='potion_'+s.potion)){combattant.inventaire.push({id:'potion_'+s.potion,nom:nomItem('potion_'+s.potion)});}
+    if(s.recompFleur){apply({item:'fleur_'+s.recompFleur},combattant,()=>{});}
+    renderSheet();
+    if(s.tresor){
+      if(cbtns2) cbtns2.innerHTML=`<button class="btn-a ok" onclick="lancerTresorVictoire(${ci},${isBoss})">💰 Lancer dé trésor</button>`;
+    } else if(!c.isMimic&&!c.isMonstre){
+      if(isBoss&&cbtns2) cbtns2.innerHTML=`<button class="btn-a ok" onclick="closePanel();changerZone()">⬇ Zone suivante</button>`;
+      else if(cbtns2) cbtns2.innerHTML=`<button class="btn-a ok" onclick="closePanel()">Continuer</button>`;
+    } else {
+      if(cbtns2) cbtns2.innerHTML=`<button class="btn-a ok" onclick="mimicLancerDe(${ci})">🎲 Lancer dé butin</button>`;
+    }
+  }
+}
+
+function recompCoopClaimer(ci,isBoss){
+  const idx=gs._recompJoueurIdx||0;
+  const j=gs.joueurs[idx];
+  const r=gs._recompIndiv;
+  const c=gs.grille[ci];const ei=scIdx(c);const s=c.sc[ei];
+  let g='';
+
+  if(r.or){j.or+=r.or;g+=`+${r.or} Or `;}
+  if(r.nourriture){j.nourriture=Math.min(j.nMax,j.nourriture+r.nourriture);g+=`+${r.nourriture} Nourr. `;}
+  if(r.potion&&!j.inventaire.some(x=>x.id==='potion_'+r.potion)){j.inventaire.push({id:'potion_'+r.potion,nom:nomItem('potion_'+r.potion)});g+=`+Potion ${r.potion} `;}
+  if(r.fleur){apply({item:'fleur_'+r.fleur},j,m=>{g+=m+' ';});}
+
+  const cl=document.getElementById('clog');
+  if(cl&&g){const sp=document.createElement('span');sp.innerHTML=`<br><span class="tgood">${j.icon} ${j.name} : ${g.trim()}</span>`;cl.appendChild(sp);cl.scrollTop=cl.scrollHeight;}
+  renderSheet();
+
+  const cbtns2=document.getElementById('cbtns');
+  if(idx===0&&gs.joueurs.length>1){
+    // J1 a réclamé, au tour de J2
+    gs._recompJoueurIdx=1;
+    if(r.tresor){
+      if(cbtns2) cbtns2.innerHTML=`<button class="btn-a ok" onclick="lancerTresorVictoire(${ci},${isBoss})">💰 J2 lance dé trésor</button>`;
+    } else {
+      if(cbtns2) cbtns2.innerHTML=`<button class="btn-a ok" onclick="recompCoopClaimer(${ci},${isBoss})">💰 J2 réclame le butin</button>`;
+    }
+  } else {
+    // Les 2 ont réclamé
+    gs._recompIndiv=null;gs._recompJoueurIdx=0;
+    if(isBoss&&cbtns2) cbtns2.innerHTML=`<button class="btn-a ok" onclick="closePanel();changerZone()">⬇ Zone suivante</button>`;
+    else if(!c.isMimic&&!c.isMonstre){if(cbtns2) cbtns2.innerHTML=`<button class="btn-a ok" onclick="closePanel()">Continuer</button>`;}
+    else{if(cbtns2) cbtns2.innerHTML=`<button class="btn-a ok" onclick="mimicLancerDe(${ci})">🎲 Lancer dé butin</button>`;}
   }
 }
 
@@ -2350,7 +2428,7 @@ function checkEnnemiMort(ci){
       c.pvActuel=s.pv2||30;
       logMsg('💀 La Liche entre en Phase 2 !','bad');
       const cl=document.getElementById('clog');
-      if(cl){const sp=document.createElement('span');sp.innerHTML=`<br><span style="color:#cc7ae8;font-size:.9rem;font-family:'Cinzel',serif">💀 PHASE 2 — La Liche se régénère !</span><br>`;cl.appendChild(sp);}
+      if(cl){const sp=document.createElement('span');sp.innerHTML=`<br><span style="color:#cc7ae8;font-size:.9rem;font-family:'Cinzel',serif">💀 PHASE 2 — La Liche se régénère !</span><br>`;cl.appendChild(sp);cl.scrollTop=cl.scrollHeight;}
       upEl('epv',`${c.pvActuel}/${s.pv2}`);
       upEl2('ehp','width:100%');
       return false;
@@ -3555,15 +3633,34 @@ function apply(e,j,cb){
   }
 }
 function updateHpDisplay(j){
-  if(gs.coop&&gs.joueurs){
-    const idx=gs.joueurs.indexOf(j);
-    if(idx>=0) renderSheetJoueur(j,idx);
-  } else {
-    upEl2('jhp',`width:${Math.max(0,j.pv/j.pvMax*100)}%`);
-    upEl('jpv',j.pvOr>0?`${j.pv}/${j.pvMax}+${j.pvOr}🍎`:`${j.pv}/${j.pvMax}`);
-  }
+  // Mettre à jour les barres dans le panel combat (jhp, jpv, jhp2, jpv2)
+  const idx=gs.joueurs?gs.joueurs.indexOf(j):-1;
+  const isJ2=idx===1;
+  const hpId=isJ2?'jhp2':'jhp';
+  const pvId=isJ2?'jpv2':'jpv';
+  const pct=Math.max(0,j.pv/j.pvMax*100);
+  const barEl=document.getElementById(hpId);
+  const pvEl=document.getElementById(pvId);
+  if(barEl) barEl.style.width=pct+'%';
+  if(pvEl) pvEl.textContent=j.pvOr>0?`${j.pv}/${j.pvMax}+${j.pvOr}🍎`:`${j.pv}/${j.pvMax}`;
+  // Aussi mettre à jour la fiche du bas
+  if(gs.coop&&gs.joueurs&&idx>=0) renderSheetJoueur(j,idx);
 }
 
+function clogAppend(html){
+  const cl=document.getElementById('clog');
+  if(!cl) return;
+  const sp=document.createElement('span');
+  sp.innerHTML=html;
+  cl.appendChild(sp);
+  cl.scrollTop=cl.scrollHeight;
+}
+function clogSet(html){
+  const cl=document.getElementById('clog');
+  if(!cl) return;
+  cl.innerHTML=html;
+  cl.scrollTop=cl.scrollHeight;
+}
 function getPanelBody(){
   return document.querySelector('#game-right .panel-body')
     || document.querySelector('#test-game-right .panel-body')
@@ -4967,11 +5064,11 @@ function lanceSalleMachines(){
     if(de===1){apply({pv:-2,aveuglement:true},j,()=>{});if(lr)lr.innerHTML=`<span class="tbad">-2 PV + Aveuglement</span>`;renderSheet();if(j.pv<=0){closePanel();finPartie(false);return;}if(lbtns)lbtns.innerHTML=`<button class="btn-a ok" onclick="closePanel()">Continuer</button>`;}
     else if(de===2){apply({pv:-1},j,()=>{});if(lr)lr.innerHTML=`<span class="tbad">-1 PV</span>`;renderSheet();if(j.pv<=0){closePanel();finPartie(false);return;}if(lbtns)lbtns.innerHTML=`<button class="btn-a ok" onclick="closePanel()">Continuer</button>`;}
     else if(de===3||de===4){
-      const c=findCarte('salle_machines');
-      const eff=de===3?c.conds3:c.conds4;
       if(lr)lr.innerHTML=`<span class="tinfo">Dé ${de} — Lancez votre dé de réussite !</span>`;
       const diceHtml=Array.from({length:j.des},(_,i)=>`<div class="die pending" id="sm-r${i}">?</div>`).join('');
-      if(lbtns)lbtns.innerHTML=`<div class="die-zone">${diceHtml}</div><div class="rzone" id="sm-res"></div><button class="btn-a" onclick="lanceSalleMachinesReussite('${enc(eff.ok)}','${enc(eff.ko)}')">🎲 Lancer</button>`;
+      const okEff=de===3?{item:'perception'}:{potion:'soin'};
+      const koEff=de===3?{pv:-1,aveuglement:true}:{pv:-1};
+      if(lbtns)lbtns.innerHTML=`<div class="die-zone">${diceHtml}</div><div class="rzone" id="sm-res"></div><button class="btn-a" onclick="lanceSalleMachinesReussite('${enc(okEff)}','${enc(koEff)}')">🎲 Lancer dé réussite</button>`;
     }
     else if(de===5){apply({or:1},j,m=>logMsg(m,'good'));if(lr)lr.innerHTML=`<span class="tgood">+1 Or</span>`;renderSheet();if(lbtns)lbtns.innerHTML=`<button class="btn-a ok" onclick="closePanel()">Continuer</button>`;}
     else{apply({armure:1},j,m=>logMsg(m,'good'));if(lr)lr.innerHTML=`<span class="tgood">+1 Armure</span>`;renderSheet();if(lbtns)lbtns.innerHTML=`<button class="btn-a ok" onclick="closePanel()">Continuer</button>`;}
@@ -7573,14 +7670,22 @@ function changerZone(){
   gs.etageMax=etageMaxZone(newZi);
   gs.etage=1;
   if(!gs.usedCardIds) gs.usedCardIds={};
-  if(gs.coop){gs.pos=[0,0];gs.pret=[false,false];gs._combatCoop=false;gs._case0Joue=[false,true];}
+  if(gs.coop){gs.pos=[0,0];gs.pret=[false,false];gs._combatCoop=false;gs._case0Joue=[false,false];gs.tourJoueur=0;}
   else{gs.pos=0;}
   gs.mimicPhase=0;gs.swapMode=false;gs.skipMode=false;gs.locked=true;
   const zNom=nomZone(newZi);
   logMsg(`🌟 Zone suivante : ${zNom} !`,'good');
   showTransition(`${zNom}`, `Préparez-vous...`, ()=>{
-    newGrille();renderGame();
-    setTimeout(()=>openCard(0),400);
+    newGrille();
+    if(gs.coop) gs.tourJoueur=0;
+    renderGame();
+    if(gs.coop){
+      gs._case0Joue[0]=true;
+      gs.locked=true;
+      setTimeout(()=>openCard(0),400);
+    } else {
+      setTimeout(()=>openCard(0),400);
+    }
   });
 }
 
@@ -7610,15 +7715,28 @@ function descendre(){
     if(jj._armureTemp){jj.armure=Math.max(0,jj.armure-jj._armureTemp);jj._armureTemp=0;}
   });
 
-  // Reset positions
-  if(gs.coop){gs.pos=[0,0];gs.pret=[false,false];gs._combatCoop=false;gs._case0Joue=[false,true];}
+  // Reset positions - les 2 joueurs doivent jouer la case 0
+  if(gs.coop){
+    gs.pos=[0,0];gs.pret=[false,false];gs._combatCoop=false;
+    gs._case0Joue=[false,false];
+    gs.tourJoueur=0; // J1 commence toujours le nouvel étage
+  }
   else{gs.pos=0;}
   gs.mimicPhase=0;gs.swapMode=false;gs.skipMode=false;gs.locked=true;
   const zNom=nomZone(gs.zoneIndex);
   const etageLabel=`Étage ${gs.etage} / ${gs.etageMax}`;
   showTransition(`${zNom}`, etageLabel, ()=>{
-    newGrille();renderGame();logMsg(`${zNom} — Étage ${gs.etage}`,'good');
-    setTimeout(()=>openCard(0),400);
+    newGrille();
+    // S'assurer que tourJoueur=0 même si newGrille a perturbé quelque chose
+    if(gs.coop) gs.tourJoueur=0;
+    renderGame();logMsg(`${zNom} — Étage ${gs.etage}`,'good');
+    if(gs.coop){
+      gs._case0Joue[0]=true; // marquer J1 comme ayant la case 0 ouverte
+      gs.locked=true;
+      setTimeout(()=>openCard(0),400);
+    } else {
+      setTimeout(()=>openCard(0),400);
+    }
   });
 }
 
